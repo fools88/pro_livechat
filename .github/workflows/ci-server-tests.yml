@@ -1,0 +1,36 @@
+name: CI - Server Tests
+
+on:
+  push:
+    branches: [ main, 'review/**', 'feat/**', '**' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  server-tests:
+    name: Server Jest Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies
+        run: |
+          cd server
+          npm ci
+
+      - name: Run server tests
+        run: |
+          npm --prefix server test --silent
+
+      - name: Upload E2E capture if present
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-e2e-output
+          path: server/tmp_e2e_output.txt
