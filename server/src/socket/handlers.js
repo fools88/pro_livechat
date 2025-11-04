@@ -7,12 +7,8 @@ const db = require('../../models');
 const jwt = require('jsonwebtoken'); 
 // NOTE: do not capture JWT secret at module-load time. Read from process.env when verifying tokens
 
-// Debug helper: control socket debug logging with env DEBUG_SOCKET=true
-const isSocketDebug = String(process.env.DEBUG_SOCKET || '').toLowerCase() === 'true';
-const debugLog = (...args) => {
-  if (!isSocketDebug) return;
-  try { console.log(...args); } catch (e) { /* ignore logging errors */ }
-};
+// Use centralized logger (winston) so we can control verbosity via LOG_LEVEL env
+const logger = require('../utils/logger');
 
 // --- (A) FUNGSI 'triggerAI' ---
 const triggerAI = async (io, message, conversation) => {
@@ -22,14 +18,14 @@ const triggerAI = async (io, message, conversation) => {
   try {
     const currentConversation = await db.Conversation.findByPk(conversation.id);
     if (!currentConversation) {
-      console.log(`[Socket AI] Convo ${conversation.id} tidak ditemukan. Berhenti.`);
+      logger.info(`[Socket AI] Convo ${conversation.id} tidak ditemukan. Berhenti.`);
       return;
     }
 
     // Jika AI tidak aktif untuk percakapan ini, jalankan Agent-Assist:
     // lakukan pencarian konteks dan kirim saran ke admin yang berada di room.
     if (!currentConversation.isAiActive) {
-      console.log(`[Socket AI] AI dimatikan untuk convo ${conversation.id}. Menjalankan Agent-Assist (background)...`);
+      logger.info(`[Socket AI] AI dimatikan untuk convo ${conversation.id}. Menjalankan Agent-Assist (background)...`);
         try {
         const aiService = require('../services/gemini.service');
         // Generate a concise suggested reply object for admin (prefer polished suggestion)
@@ -37,7 +33,7 @@ const triggerAI = async (io, message, conversation) => {
         // Debug: log a short summary to help E2E debug (safe, no secrets)
         try {
           const preview = suggestionObj && suggestionObj.suggestion ? String(suggestionObj.suggestion).slice(0,200) : null;
-          console.log('--- [DEBUG-AI] suggestionObj present=', Boolean(suggestionObj), 'preview=', preview);
+          logger.debug('--- [DEBUG-AI] suggestionObj present=', Boolean(suggestionObj), 'preview=', preview);
         } catch (e) { }
         // Fallback: if suggestionObj null, use raw context as suggestion text
         let payloadSuggestion = null;
@@ -66,19 +62,19 @@ const triggerAI = async (io, message, conversation) => {
                 sentCount++;
               }
             } catch (e) {
-              console.warn('[Socket AI] Gagal mengirim ai_suggestion ke satu socket:', e && e.message);
+              logger.warn('[Socket AI] Gagal mengirim ai_suggestion ke satu socket:', e && e.message);
             }
           });
 
           // nothing extra: we emit only to admin sockets in the room
         }
       } catch (err) {
-        console.error('[Socket AI] Agent-Assist gagal:', err);
+  logger.error('[Socket AI] Agent-Assist gagal:', err);
       }
       // Jangan buat balasan AI otomatis jika AI dimatikan
       return;
     }
-    console.log(`[Socket AI] AI aktif untuk convo ${conversation.id}. Memanggil Gemini...`);
+  logger.info(`[Socket AI] AI aktif untuk convo ${conversation.id}. Memanggil Gemini...`);
     
     const history = await db.Message.findAll({
       where: { conversationId: conversation.id },
@@ -98,7 +94,7 @@ const triggerAI = async (io, message, conversation) => {
     );
     
     if (!aiTextResponse) {
-      console.error('[Socket AI] Gemini mengembalikan respons kosong.');
+  logger.error('[Socket AI] Gemini mengembalikan respons kosong.');
       return;
     }
 
@@ -110,13 +106,13 @@ const triggerAI = async (io, message, conversation) => {
       isRead: false
     });
     
-    console.log('[Socket AI] Balasan AI dibuat, mengirim ke ruangan:', conversation.id);
-    io.to(conversation.id.toString()).emit('new_message', aiMessage);
+  logger.info('[Socket AI] Balasan AI dibuat, mengirim ke ruangan:', conversation.id);
+  io.to(conversation.id.toString()).emit('new_message', aiMessage);
     
     updateSummaryInBackground(aiMessage.conversationId);
     
   } catch (error) {
-    console.error(`[Socket AI] GAGAL total saat trigger AI:`, error);
+  logger.error(`[Socket AI] GAGAL total saat trigger AI:`, error);
   }
 };
 
@@ -132,7 +128,7 @@ const updateSummaryInBackground = async (conversationId) => {
     });
     
     if (history.length > 0 && history.length % 10 === 0) {
-      console.log(`[V13 Auto-Summary] Jumlah pesan (${history.length}) adalah kelipatan 10. Membuat ringkasan...`);
+  logger.info(`[V13 Auto-Summary] Jumlah pesan (${history.length}) adalah kelipatan 10. Membuat ringkasan...`);
       
       const chatHistory = history.map(msg => ({
         role: (msg.senderType === 'visitor' ? 'user' : 'model'),
@@ -146,11 +142,11 @@ const updateSummaryInBackground = async (conversationId) => {
           { aiSummary: summary },
           { where: { id: conversationId } }
         );
-        console.log(`[V13 Auto-Summary] Ringkasan baru berhasil disimpan.`);
+  logger.info(`[V13 Auto-Summary] Ringkasan baru berhasil disimpan.`);
       }
     } 
   } catch (error) {
-    console.error('[V13 Auto-Summary] GAGAL membuat ringkasan latar belakang:', error);
+  logger.error('[V13 Auto-Summary] GAGAL membuat ringkasan latar belakang:', error);
   }
 };
 
@@ -160,10 +156,10 @@ const registerSocketHandlers = (io) => {
   io.on('connection', async (socket) => {
     let authHandled = false;
     // --- (BAGIAN 1: KONEKSI - SUDAH DIPERBAIKI) ---
-    console.log('--- [DEBUG] KONEKSI BARU DITERIMA ---');
+  logger.debug('--- [DEBUG] KONEKSI BARU DITERIMA ---');
     try {
       const { widgetKey, fingerprint, token } = socket.handshake.query; 
-      console.log(`--- [DEBUG] Query Diterima: Key=${widgetKey}, FP=${fingerprint}, token=${token ? 'present' : 'absent'}`);
+  logger.debug(`--- [DEBUG] Query Diterima: Key=${widgetKey}, FP=${fingerprint}, token=${token ? 'present' : 'absent'}`);
 
       // If token present, try decode it first. Token may represent admin or widget.
       if (token) {
@@ -178,13 +174,13 @@ const registerSocketHandlers = (io) => {
               ? `${secret.slice(0, Math.min(3, secret.length))}...${secret.slice(Math.max(0, secret.length - 3))} (len=${secret.length})`
               : 'MISSING';
             try {
-              console.log('--- [DEBUG] JWT verification attempt. JWT_SECRET present=', Boolean(process.env.JWT_SECRET), 'secretInfo=', secretInfo);
+              logger.debug('--- [DEBUG] JWT verification attempt. JWT_SECRET present=', Boolean(process.env.JWT_SECRET), 'secretInfo=', secretInfo);
             } catch (e) {
               // defensive: console.log should not crash
             }
             // show a short prefix of the token to correlate logs without printing whole token
             const tokenPrefix = token && token.length ? token.slice(0, 40) + (token.length > 40 ? '...' : '') : '<empty>';
-            console.log('--- [DEBUG] Token prefix:', tokenPrefix);
+            logger.debug('--- [DEBUG] Token prefix:', tokenPrefix);
           }
 
           let decoded;
@@ -198,14 +194,14 @@ const registerSocketHandlers = (io) => {
                 if (decoded.websiteId) summary.websiteId = decoded.websiteId;
                 if (decoded.exp) summary.exp = decoded.exp;
               }
-              console.log('--- [DEBUG] Token verified OK. Decoded payload summary:', summary);
+              logger.debug('--- [DEBUG] Token verified OK. Decoded payload summary:', summary);
             }
           } catch (verifyErr) {
             // decode without verification to inspect payload values (safe to log)
             const decodedUnverified = jwt.decode(token) || null;
             if (jwtDebug) {
-              console.warn('--- [DEBUG] Token verification FAILED:', verifyErr && verifyErr.message);
-              console.log('--- [DEBUG] Decoded (unverified) payload summary:', decodedUnverified && {
+              logger.warn('--- [DEBUG] Token verification FAILED:', verifyErr && verifyErr.message);
+              logger.debug('--- [DEBUG] Decoded (unverified) payload summary:', decodedUnverified && {
                 id: decodedUnverified.id,
                 websiteId: decodedUnverified.websiteId,
                 exp: decodedUnverified.exp
@@ -215,7 +211,7 @@ const registerSocketHandlers = (io) => {
           }
           // widget token
           if (decoded && decoded.websiteId) {
-            console.log('--- [DEBUG] Token presents widget identity. Proceed as WIDGET token.');
+            logger.debug('--- [DEBUG] Token presents widget identity. Proceed as WIDGET token.');
             const website = await db.Website.findByPk(decoded.websiteId);
             if (!website) {
               socket.emit('connection_error', 'Widget token invalid (website not found).');
@@ -255,11 +251,11 @@ const registerSocketHandlers = (io) => {
           if (decoded && decoded.id) {
             socket.userType = 'admin';
             socket.adminId = decoded.id;
-            debugLog(`--- [DEBUG] Admin ID ${socket.adminId} terotentikasi via token.`);
+            logger.debug(`--- [DEBUG] Admin ID ${socket.adminId} terotentikasi via token.`);
             authHandled = true;
           }
         } catch (e) {
-          debugLog('--- [DEBUG] Token verification failed, will fallback to widgetKey handling if provided.');
+          logger.debug('--- [DEBUG] Token verification failed, will fallback to widgetKey handling if provided.');
         }
       }
 
@@ -268,28 +264,28 @@ const registerSocketHandlers = (io) => {
   // Default disabled for safety: do not allow legacy widgetKey fallback unless explicitly enabled.
       const allowLegacy = String(process.env.ALLOW_LEGACY_WIDGET_KEY ?? 'false').toLowerCase() === 'true';
       if (!authHandled && !token && !allowLegacy) {
-        debugLog('--- [DEBUG] Legacy widgetKey flow disabled by ALLOW_LEGACY_WIDGET_KEY=false');
+  logger.debug('--- [DEBUG] Legacy widgetKey flow disabled by ALLOW_LEGACY_WIDGET_KEY=false');
         socket.emit('connection_error', 'Legacy widgetKey flow disabled on this server');
         return socket.disconnect();
       }
 
       if (!authHandled && widgetKey && fingerprint) {
         // ... (Logika koneksi widget Anda sudah benar) ...
-        console.log('--- [DEBUG] Mendeteksi koneksi TIPE: WIDGET');
+  logger.debug('--- [DEBUG] Mendeteksi koneksi TIPE: WIDGET');
         const website = await db.Website.findOne({ where: { widgetKey } });
         
         if (!website) {
-          debugLog('--- [DEBUG] ERROR: Widget Key tidak valid.');
+          logger.debug('--- [DEBUG] ERROR: Widget Key tidak valid.');
           socket.emit('connection_error', 'Widget Key tidak valid.');
           return socket.disconnect();
         }
-        debugLog(`--- [DEBUG] Website Ditemukan: ${website.id}`);
+  logger.debug(`--- [DEBUG] Website Ditemukan: ${website.id}`);
 
         let [visitor] = await db.Visitor.findOrCreate({
           where: { browserFingerprint: fingerprint, websiteId: website.id },
           defaults: { browserFingerprint: fingerprint, websiteId: website.id }
         });
-  debugLog(`--- [DEBUG] Visitor Ditemukan/Dibuat: ${visitor.id}`);
+  logger.debug(`--- [DEBUG] Visitor Ditemukan/Dibuat: ${visitor.id}`);
 
         let [conversation] = await db.Conversation.findOrCreate({
           where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
@@ -300,7 +296,7 @@ const registerSocketHandlers = (io) => {
             isAiActive: website.isAiEnabled
           }
         });
-  debugLog(`--- [DEBUG] Convo Ditemukan/Dibuat: ${conversation.id}`);
+  logger.debug(`--- [DEBUG] Convo Ditemukan/Dibuat: ${conversation.id}`);
 
         socket.join(conversation.id.toString());
         socket.userType = 'visitor';
@@ -308,17 +304,17 @@ const registerSocketHandlers = (io) => {
         socket.conversationId = conversation.id;
         socket.websiteId = website.id;
 
-  debugLog('--- [DEBUG] MENGIRIM "connection_success"...');
+  logger.debug('--- [DEBUG] MENGIRIM "connection_success"...');
         socket.emit('connection_success', {
           conversationId: conversation.id
         });
-  debugLog('--- [DEBUG] "connection_success" TERKIRIM.');
+  logger.debug('--- [DEBUG] "connection_success" TERKIRIM.');
 
       }
 
       // If authentication was not handled above, reject connection
       if (!authHandled) {
-        debugLog('--- [DEBUG] ERROR: Koneksi tidak jelas.');
+  logger.debug('--- [DEBUG] ERROR: Koneksi tidak jelas.');
         socket.emit('connection_error', 'Otentikasi tidak valid.');
         return socket.disconnect();
       }
@@ -328,7 +324,7 @@ const registerSocketHandlers = (io) => {
       // (G) EVENT: KIRIM PESAN
       socket.on('send_message', async (payload) => {
         try {
-          debugLog(`--- [DEBUG] Menerima 'send_message' (Tipe: ${socket.userType})`);
+          logger.debug(`--- [DEBUG] Menerima 'send_message' (Tipe: ${socket.userType})`);
           let newMessage;
           
           // Pesan dari ADMIN
@@ -351,7 +347,7 @@ const registerSocketHandlers = (io) => {
             
             const conversation = await db.Conversation.findByPk(conversationId);
             if (!conversation) {
-              console.error('[Socket.IO] GAGAL send_message: Convo tidak ditemukan.');
+              logger.error('[Socket.IO] GAGAL send_message: Convo tidak ditemukan.');
               return socket.emit('message_error', 'Percakapan tidak ditemukan.');
             }
             newMessage = await db.Message.create({
@@ -364,13 +360,13 @@ const registerSocketHandlers = (io) => {
             
             // Kirim hanya ke room percakapan (lebih efisien daripada broadcast global)
             io.to(conversationId.toString()).emit('new_message', newMessage);
-            debugLog(`--- [DEBUG] Pesan visitor dikirim ke ruangan ${conversationId}`);
+            logger.debug(`--- [DEBUG] Pesan visitor dikirim ke ruangan ${conversationId}`);
             
             triggerAI(io, newMessage, conversation);
           }
           
         } catch (error) {
-          console.error('[Socket.IO] GAGAL saat send_message:', error);
+          logger.error('[Socket.IO] GAGAL saat send_message:', error);
           socket.emit('message_error', 'Gagal mengirim pesan.');
         }
       });
@@ -380,11 +376,11 @@ const registerSocketHandlers = (io) => {
         // ... (Logika join_room Anda sudah benar) ...
         try {
           if (socket.userType === 'admin') {
-            debugLog(`--- [DEBUG] Admin ${socket.adminId} join room: ${conversationId}`);
+            logger.debug(`--- [DEBUG] Admin ${socket.adminId} join room: ${conversationId}`);
             socket.join(conversationId.toString());
           }
         } catch (error) {
-          console.error('[Socket.IO] GAGAL saat "join_room":', error);
+          logger.error('[Socket.IO] GAGAL saat "join_room":', error);
           socket.emit('operation_error', 'Gagal join room.');
         }
       });
@@ -393,41 +389,41 @@ const registerSocketHandlers = (io) => {
       socket.on('toggle_ai', async (payload) => {
         try {
           if (socket.userType !== 'admin') {
-            console.warn('--- [DEBUG] Non-admin mencoba toggle AI. Ditolak.');
+            logger.warn('--- [DEBUG] Non-admin mencoba toggle AI. Ditolak.');
             return;
           }
           const { conversationId, status } = payload;
-          debugLog(`--- [DEBUG] Admin Menerima 'toggle_ai' untuk convo ${conversationId} -> ${status}`);
+          logger.debug(`--- [DEBUG] Admin Menerima 'toggle_ai' untuk convo ${conversationId} -> ${status}`);
   
           // Debug: update conversation and log number of rows affected to ensure toggle persisted
           try {
-            console.log('--- [DEBUG] toggle_ai payload raw=', payload, 'socket.adminId=', socket.adminId);
-            console.log('--- [DEBUG] typeof conversationId=', typeof conversationId, 'typeof status=', typeof status);
+            logger.debug('--- [DEBUG] toggle_ai payload raw=', payload, 'socket.adminId=', socket.adminId);
+            logger.debug('--- [DEBUG] typeof conversationId=', typeof conversationId, 'typeof status=', typeof status);
             const [affected] = await db.Conversation.update(
               { isAiActive: status },
               { where: { id: conversationId } }
             );
-            debugLog('--- [DEBUG] Conversation.update affected rows=', affected);
+            logger.debug('--- [DEBUG] Conversation.update affected rows=', affected);
           } catch (updErr) {
-            console.error('--- [DEBUG] Conversation.update failed:', updErr && (updErr.message || updErr));
+            logger.error('--- [DEBUG] Conversation.update failed:', updErr && (updErr.message || updErr));
           }
           // Read back conversation to verify new state
           try {
             const convAfter = await db.Conversation.findByPk(conversationId);
-            debugLog('--- [DEBUG] Conversation after toggle:', convAfter ? { id: convAfter.id, isAiActive: convAfter.isAiActive } : null);
+            logger.debug('--- [DEBUG] Conversation after toggle:', convAfter ? { id: convAfter.id, isAiActive: convAfter.isAiActive } : null);
           } catch (readErr) {
-            console.error('--- [DEBUG] Failed to read conversation after toggle:', readErr && readErr.message);
+            logger.error('--- [DEBUG] Failed to read conversation after toggle:', readErr && readErr.message);
           }
           io.emit('ai_status_changed', {
             conversationId: conversationId,
             isAiActive: status
           });
           
-          debugLog(`--- [DEBUG] Status AI untuk ${conversationId} berhasil di-update dan di-broadcast.`);
+          logger.debug(`--- [DEBUG] Status AI untuk ${conversationId} berhasil di-update dan di-broadcast.`);
   
         // --- (FIX SINTAKS: TAMBAHKAN '{' dan '}') ---
         } catch (error) { // <-- { DITAMBAHKAN
-          console.error('[Socket.IO] GAGAL saat "toggle_ai":', error);
+          logger.error('[Socket.IO] GAGAL saat "toggle_ai":', error);
           socket.emit('operation_error', 'Gagal memperbarui status AI.');
         } // <-- } DITAMBAHKAN
       });
@@ -435,12 +431,12 @@ const registerSocketHandlers = (io) => {
       // (H) EVENT: DISCONNECT
       socket.on('disconnect', () => {
         // ... (Logika disconnect Anda sudah benar) ...
-  debugLog(`--- [DEBUG] Socket ${socket.id} terputus (Tipe: ${socket.userType}).`);
+  logger.debug(`--- [DEBUG] Socket ${socket.id} terputus (Tipe: ${socket.userType}).`);
       });
 
     } catch (err) {
-      console.error('!!! [DEBUG] ERROR BESAR DI DALAM io.on(connection):', err);
-      socket.emit('connection_error', 'Terjadi error internal pada server.');
+  logger.error('!!! [DEBUG] ERROR BESAR DI DALAM io.on(connection):', err);
+  socket.emit('connection_error', 'Terjadi error internal pada server.');
       socket.disconnect();
     }
   });
