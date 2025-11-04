@@ -157,39 +157,48 @@ const registerSocketHandlers = (io) => {
       if (token) {
         try {
           try { require('dotenv').config(); } catch (e) {}
-          // --- Enhanced debug logging for JWT verification ---
+          // --- Enhanced debug logging for JWT verification (guarded) ---
           const secret = process.env.JWT_SECRET || 'prochat-rahasia';
-          const secretInfo = secret
-            ? `${secret.slice(0, Math.min(3, secret.length))}...${secret.slice(Math.max(0, secret.length - 3))} (len=${secret.length})`
-            : 'MISSING';
-          try {
-            console.log('--- [DEBUG] JWT verification attempt. JWT_SECRET present=', Boolean(process.env.JWT_SECRET), 'secretInfo=', secretInfo);
-          } catch (e) {
-            // defensive: console.log should not crash
+          // Only print sensitive-ish debug lines when JWT_DEBUG is explicitly true
+          const jwtDebug = String(process.env.JWT_DEBUG || '').toLowerCase() === 'true';
+          if (jwtDebug) {
+            const secretInfo = secret
+              ? `${secret.slice(0, Math.min(3, secret.length))}...${secret.slice(Math.max(0, secret.length - 3))} (len=${secret.length})`
+              : 'MISSING';
+            try {
+              console.log('--- [DEBUG] JWT verification attempt. JWT_SECRET present=', Boolean(process.env.JWT_SECRET), 'secretInfo=', secretInfo);
+            } catch (e) {
+              // defensive: console.log should not crash
+            }
+            // show a short prefix of the token to correlate logs without printing whole token
+            const tokenPrefix = token && token.length ? token.slice(0, 40) + (token.length > 40 ? '...' : '') : '<empty>';
+            console.log('--- [DEBUG] Token prefix:', tokenPrefix);
           }
-          // show a short prefix of the token to correlate logs without printing whole token
-          const tokenPrefix = token && token.length ? token.slice(0, 40) + (token.length > 40 ? '...' : '') : '<empty>';
-          console.log('--- [DEBUG] Token prefix:', tokenPrefix);
+
           let decoded;
           try {
             decoded = jwt.verify(token, secret);
             // summary of decoded payload (do not print secrets)
-            const summary = {};
-            if (decoded && typeof decoded === 'object') {
-              if (decoded.id) summary.id = decoded.id;
-              if (decoded.websiteId) summary.websiteId = decoded.websiteId;
-              if (decoded.exp) summary.exp = decoded.exp;
+            if (jwtDebug) {
+              const summary = {};
+              if (decoded && typeof decoded === 'object') {
+                if (decoded.id) summary.id = decoded.id;
+                if (decoded.websiteId) summary.websiteId = decoded.websiteId;
+                if (decoded.exp) summary.exp = decoded.exp;
+              }
+              console.log('--- [DEBUG] Token verified OK. Decoded payload summary:', summary);
             }
-            console.log('--- [DEBUG] Token verified OK. Decoded payload summary:', summary);
           } catch (verifyErr) {
             // decode without verification to inspect payload values (safe to log)
             const decodedUnverified = jwt.decode(token) || null;
-            console.warn('--- [DEBUG] Token verification FAILED:', verifyErr && verifyErr.message);
-            console.log('--- [DEBUG] Decoded (unverified) payload summary:', decodedUnverified && {
-              id: decodedUnverified.id,
-              websiteId: decodedUnverified.websiteId,
-              exp: decodedUnverified.exp
-            });
+            if (jwtDebug) {
+              console.warn('--- [DEBUG] Token verification FAILED:', verifyErr && verifyErr.message);
+              console.log('--- [DEBUG] Decoded (unverified) payload summary:', decodedUnverified && {
+                id: decodedUnverified.id,
+                websiteId: decodedUnverified.websiteId,
+                exp: decodedUnverified.exp
+              });
+            }
             throw verifyErr;
           }
           // widget token
