@@ -1,0 +1,120 @@
+/* ============================================
+   RESPONSIVE LAYOUT - DASHBOARD
+   ============================================ */
+
+/* Dashboard Chat Container */
+.dashboard-chat-container {
+  display: flex;
+  height: calc(100vh - 64px);
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  position: relative;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-wrap: nowrap;
+}
+
+/* Conversation List Panel (Left Side) */
+.conversation-list.chat-list-panel {
+  /* Width akan di-override oleh inline style dari React */
+  flex-shrink: 0;
+  flex-grow: 0;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  border-right: var(--prochat-border-width) solid var(--prochat-border-color);
+  background: var(--prochat-sidebar-bg);
+  overflow: hidden;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Chat Window (Right Side) */
+.chat-window-admin {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
+  min-width: 0 !important;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Chat Messages Area - Properly sized */
+/* Note: Main styling in global.css, this is just responsive override */
+
+/* Empty State */
+.chat-empty-state {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--prochat-text-secondary);
+  box-sizing: border-box;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Tablet - Small screens */
+@media (max-width: 1024px) {
+  .conversation-list.chat-list-panel {
+    width: 280px;
+    min-width: 250px;
+  }
+}
+
+/* Mobile - Very small screens */
+@media (max-width: 768px) {
+  .dashboard-chat-container {
+    flex-direction: column;
+  }
+  
+  .conversation-list.chat-list-panel {
+    width: 100%;
+    max-width: 100%;
+    height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--prochat-border-color);
+  }
+  
+  .chat-window-admin {
+    flex: 1;
+  }
+}
+
+/* Ultra-wide screens */
+@media (min-width: 1920px) {
+  .conversation-list.chat-list-panel {
+    width: 380px;
+  }
+  
+  .message {
+    max-width: 55%;
+  }
+}
+
+/* ============================================
+   FIX SPACING & GAPS
+   ============================================ */
+
+/* Remove all unexpected margins/paddings */
+* {
+  margin: 0;
+  padding: 0;
+}
+
+/* Prevent scrollbar from creating gaps */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+

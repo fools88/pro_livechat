@@ -1,0 +1,96 @@
+/* /dashboard/src/styles/connection-status.css */
+/* 🆕 V22: Connection Status Badge Styles */
+
+.connection-status-badge {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9999;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.status-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.status-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* Connected State - Green */
+.status-connected {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+/* Disconnected State - Red */
+.status-disconnected {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Reconnecting/Connecting State - Yellow */
+.status-reconnecting,
+.status-connecting {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Error State - Dark Red */
+.status-error {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: white;
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Pulse Animation for Reconnecting */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+/* Shake Animation for Errors */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 768px) {
+  .connection-status-badge {
+    top: 10px;
+    right: 10px;
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+  
+  .status-icon {
+    font-size: 12px;
+  }
+}
