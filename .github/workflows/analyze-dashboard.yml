@@ -1,0 +1,43 @@
+name: Analyze - Dashboard bundle
+
+on:
+  workflow_dispatch:
+    inputs: {}
+  push:
+    branches: [ main, feat/*, '**' ]
+
+jobs:
+  analyze-dashboard:
+    name: Analyze dashboard bundle (ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dashboard deps
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Run bundle analyze (build with ANALYZE)
+        working-directory: dashboard
+        env:
+          ANALYZE: 'true'
+        run: |
+          # Build with analyze flag (Vite config should load visualizer when ANALYZE=true)
+          npm run build --if-present || npm run analyze --if-present || true
+
+      - name: Collect dist and visualizer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-analyze-artifacts
+          path: |
+            dashboard/dist
+            tmp/dashboard-visualizer.html
+            tmp/*-visualizer.html
