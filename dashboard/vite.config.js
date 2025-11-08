@@ -24,11 +24,13 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // specific packages that include 'react' in their name must be checked
+            // before the generic react/react-dom check (emoji-picker-react, simplebar-react)
+            if (id.includes('emoji-picker-react')) return 'vendor_emoji'
+            if (id.includes('simplebar-react')) return 'vendor_simplebar'
             if (id.includes('react') || id.includes('react-dom')) return 'vendor_react'
             if (id.includes('socket.io-client')) return 'vendor_socketio'
             if (id.includes('date-fns')) return 'vendor_datefns'
-            if (id.includes('emoji-picker-react')) return 'vendor_emoji'
-            if (id.includes('simplebar-react')) return 'vendor_simplebar'
             return 'vendor_misc'
           }
         },

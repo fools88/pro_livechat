@@ -2,9 +2,9 @@
 // (VERSI V22 - WITH WEBSOCKET ENHANCEMENTS: Connection Status, Typing Indicators, Real-time Edit/Delete)
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { format } from 'date-fns';
-import SimpleBar from 'simplebar-react';
-import 'simplebar-react/dist/simplebar.min.css';
+// Use per-function import to avoid pulling the whole date-fns bundle
+import format from 'date-fns/format';
+const SimpleBar = React.lazy(() => import('simplebar-react'));
 // Lazy-load emoji picker to avoid adding it to the initial bundle
 const EmojiPicker = React.lazy(() => import('emoji-picker-react'));
 import DashboardLayout from '../components/DashboardLayout';
@@ -70,6 +70,11 @@ function DashboardPage() {
   const emojiPickerRef = useRef(null);
   const resizeRef = useRef(null);
   const typingTimeoutRef = useRef(null); // 🆕 V22: For typing indicator debounce
+
+  // Load SimpleBar CSS dynamically to avoid pulling it into initial bundle
+  useEffect(() => {
+    import('simplebar-react/dist/simplebar.min.css').catch(() => {});
+  }, []);
 
   // Toast helper functions
   const addToast = (type, message, duration = 3000) => {
@@ -845,6 +850,7 @@ if (socketService.getConnectionStatus && socketService.getConnectionStatus() ===
                   />
                 </Suspense>
               {/* (1) Area Pesan (Polished V15.9) */}
+              <Suspense fallback={<div className="chat-messages-admin" style={{ maxHeight: '100%', height: '100%' }} /> }>
               <SimpleBar 
                 className="chat-messages-admin"
                 style={{ maxHeight: '100%', height: '100%' }}
@@ -1001,7 +1007,8 @@ if (socketService.getConnectionStatus && socketService.getConnectionStatus() ===
                 </Suspense>
 
                 <div ref={messagesEndRef} />
-              </SimpleBar>              {/* (2) TOGGLE PER-CHAT (Aman) */}
+              </SimpleBar>
+              </Suspense>              {/* (2) TOGGLE PER-CHAT (Aman) */}
               <div className="ai-toggle-bar">
                 <span style={{ color: isAiActive ? 'var(--prochat-color-success)' : 'var(--prochat-color-danger)' }}>
                   {isAiActive ? 'AI Auto-Reply AKTIF' : 'AI Auto-Reply NONAKTIF'}

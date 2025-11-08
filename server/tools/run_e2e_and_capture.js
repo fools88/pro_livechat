@@ -10,6 +10,9 @@ if (!fs.existsSync(path.dirname(OUT))) fs.mkdirSync(path.dirname(OUT), { recursi
 
 const outStream = fs.createWriteStream(OUT, { flags: 'w' });
 
+// write a startup marker so we can tell the file is being created
+outStream.write(`---RUN_E2E_AND_CAPTURE START ${new Date().toISOString()}\n`);
+
 const child = spawn(process.execPath, [SCRIPT], {
   stdio: ['ignore', 'pipe', 'pipe']
 });

@@ -1,9 +1,8 @@
 // /dashboard/src/components/ConversationList.jsx
 // (KOMPONEN V18 - DENGAN SEARCH & FILTER)
 
-import React, { useState, useMemo } from 'react';
-import SimpleBar from 'simplebar-react';
-import 'simplebar-react/dist/simplebar.min.css';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
+const SimpleBar = React.lazy(() => import('simplebar-react'));
 import '../styles/conversation-search.css';
 
 // --- (FUNGSI HELPER V16: TIMESTAMP PROFESIONAL) ---
@@ -83,6 +82,11 @@ function ConversationList({
   // Backend sudah mengurutkan (order: 'updatedAt' DESC),
   // jadi kita tidak perlu sorting di sini.
 
+  useEffect(() => {
+    // Load SimpleBar CSS dynamically when this component mounts
+    import('simplebar-react/dist/simplebar.min.css').catch(() => {});
+  }, []);
+
   return (
     <div className="conversation-list-container">
       {/* Search Bar */}
@@ -97,6 +101,7 @@ function ConversationList({
       </div>
 
       {/* Conversation List */}
+      <Suspense fallback={<div className="conversations-scroll" style={{ maxHeight: '100%', height: '100%' }} /> }>
       <SimpleBar 
         className="conversations-scroll"
         style={{ maxHeight: '100%', height: '100%' }}
@@ -173,6 +178,7 @@ function ConversationList({
       })
         )}
       </SimpleBar>
+      </Suspense>
     </div>
   );
 }

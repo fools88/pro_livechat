@@ -45,10 +45,11 @@ const assert = require('assert');
   await handlers.triggerAI(io, message, conversation);
 
   if (!emitted) {
-    console.error('Integration test FAILED: no ai_suggestion emitted');
+  const logger = require('../src/utils/logger');
+  logger.error('Integration test FAILED: no ai_suggestion emitted');
     process.exit(1);
   }
 
-  console.log('Integration test PASSED: ai_suggestion emitted:', emitted);
+  logger.info('Integration test PASSED: ai_suggestion emitted: ' + JSON.stringify(emitted));
   process.exit(0);
 })();

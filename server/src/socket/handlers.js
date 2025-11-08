@@ -228,7 +228,7 @@ const registerSocketHandlers = (io) => {
               defaults: { browserFingerprint: fingerprint, websiteId: website.id }
             });
 
-            let [conversation] = await db.Conversation.findOrCreate({
+            let [conversation, isNewConversation] = await db.Conversation.findOrCreate({
               where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
               defaults: {
                 visitorId: visitor.id,
@@ -244,7 +244,24 @@ const registerSocketHandlers = (io) => {
             socket.conversationId = conversation.id;
             socket.websiteId = website.id;
 
-            socket.emit('connection_success', { conversationId: conversation.id });
+            socket.emit('connection_success', { 
+              conversationId: conversation.id,
+              visitorKey: visitor.browserFingerprint  // ✅ FIX: Gunakan browserFingerprint (bukan visitorKey yang tidak exist)
+            });
+            
+            // Emit new_conversation to all admin sockets when a new conversation is created
+            if (isNewConversation) {
+              logger.info(`[Socket] New conversation ${conversation.id} created via token, broadcasting to admins...`);
+              const convoWithDetails = await db.Conversation.findByPk(conversation.id, {
+                include: [
+                  { model: db.Visitor, as: 'visitor' },
+                  { model: db.Website, as: 'website' },
+                  { model: db.Message, as: 'Messages', limit: 1, order: [['createdAt', 'DESC']] }
+                ]
+              });
+              io.emit('new_conversation', convoWithDetails);
+            }
+            
             authHandled = true;
           }
           // admin token
@@ -287,7 +304,7 @@ const registerSocketHandlers = (io) => {
         });
   logger.debug(`--- [DEBUG] Visitor Ditemukan/Dibuat: ${visitor.id}`);
 
-        let [conversation] = await db.Conversation.findOrCreate({
+        let [conversation, isNewConversation] = await db.Conversation.findOrCreate({
           where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
           defaults: {
             visitorId: visitor.id,
@@ -296,7 +313,7 @@ const registerSocketHandlers = (io) => {
             isAiActive: website.isAiEnabled
           }
         });
-  logger.debug(`--- [DEBUG] Convo Ditemukan/Dibuat: ${conversation.id}`);
+  logger.debug(`--- [DEBUG] Convo Ditemukan/Dibuat: ${conversation.id}, isNew=${isNewConversation}`);
 
         socket.join(conversation.id.toString());
         socket.userType = 'visitor';
@@ -306,9 +323,25 @@ const registerSocketHandlers = (io) => {
 
   logger.debug('--- [DEBUG] MENGIRIM "connection_success"...');
         socket.emit('connection_success', {
-          conversationId: conversation.id
+          conversationId: conversation.id,
+          visitorKey: visitor.browserFingerprint  // ✅ FIX: Gunakan browserFingerprint
         });
   logger.debug('--- [DEBUG] "connection_success" TERKIRIM.');
+
+        // Emit new_conversation to all admin sockets when a new conversation is created
+        if (isNewConversation) {
+          logger.info(`[Socket] New conversation ${conversation.id} created, broadcasting to admins...`);
+          // Fetch conversation with associations for Dashboard display
+          const convoWithDetails = await db.Conversation.findByPk(conversation.id, {
+            include: [
+              { model: db.Visitor, as: 'visitor' },
+              { model: db.Website, as: 'website' },
+              { model: db.Message, as: 'Messages', limit: 1, order: [['createdAt', 'DESC']] }
+            ]
+          });
+          // Broadcast to all connected admin sockets
+          io.emit('new_conversation', convoWithDetails);
+        }
 
       }
 
@@ -358,9 +391,19 @@ const registerSocketHandlers = (io) => {
               isRead: false
             });
             
-            // Kirim hanya ke room percakapan (lebih efisien daripada broadcast global)
+            // ✅ FIX: Kirim ke room conversation DAN broadcast ke semua admin
+            // Ke room (untuk admin yang sudah join + visitor sendiri)
             io.to(conversationId.toString()).emit('new_message', newMessage);
-            logger.debug(`--- [DEBUG] Pesan visitor dikirim ke ruangan ${conversationId}`);
+            
+            // Ke semua admin socket (untuk admin yang belum join room)
+            const allSockets = await io.fetchSockets();
+            allSockets.forEach(adminSocket => {
+              if (adminSocket.userType === 'admin' && !adminSocket.rooms.has(conversationId.toString())) {
+                adminSocket.emit('new_message', newMessage);
+              }
+            });
+            
+            logger.debug(`--- [DEBUG] Pesan visitor dikirim ke ruangan ${conversationId} + all admin sockets`);
             
             triggerAI(io, newMessage, conversation);
           }
@@ -428,6 +471,145 @@ const registerSocketHandlers = (io) => {
         } // <-- } DITAMBAHKAN
       });
       
+      // 🆕 EVENT: EDIT MESSAGE
+      socket.on('edit_message', async (payload) => {
+        try {
+          const { conversationId, messageId, content } = payload;
+          
+          if (!content || !content.trim()) {
+            return socket.emit('operation_error', 'Konten pesan tidak boleh kosong.');
+          }
+
+          // Find and update message
+          const message = await db.Message.findByPk(messageId);
+          if (!message) {
+            return socket.emit('operation_error', 'Pesan tidak ditemukan.');
+          }
+
+          // Only allow admin to edit their own messages
+          if (socket.userType === 'admin' && message.senderType === 'admin' && message.senderId === socket.adminId) {
+            message.content = content.trim();
+            message.isEdited = true; // Flag that message was edited
+            await message.save();
+
+            // Broadcast updated message to all in room
+            io.to(conversationId.toString()).emit('message:updated', {
+              messageId: message.id,
+              content: message.content,
+              isEdited: true,
+              conversationId: conversationId
+            });
+
+            logger.info(`[Socket] Message ${messageId} edited by admin ${socket.adminId}`);
+          } else {
+            socket.emit('operation_error', 'Tidak diizinkan mengedit pesan ini.');
+          }
+        } catch (error) {
+          logger.error('[Socket.IO] GAGAL saat edit_message:', error);
+          socket.emit('operation_error', 'Gagal mengedit pesan.');
+        }
+      });
+
+      // 🆕 EVENT: DELETE MESSAGE
+      socket.on('delete_message', async (payload) => {
+        try {
+          const { conversationId, messageId } = payload;
+
+          const message = await db.Message.findByPk(messageId);
+          if (!message) {
+            return socket.emit('operation_error', 'Pesan tidak ditemukan.');
+          }
+
+          // Only allow admin to delete their own messages
+          if (socket.userType === 'admin' && message.senderType === 'admin' && message.senderId === socket.adminId) {
+            // Soft delete (set deletedAt timestamp)
+            await message.destroy();
+
+            // Broadcast deletion to all in room
+            io.to(conversationId.toString()).emit('message:deleted', {
+              messageId: message.id,
+              conversationId: conversationId
+            });
+
+            logger.info(`[Socket] Message ${messageId} deleted by admin ${socket.adminId}`);
+          } else {
+            socket.emit('operation_error', 'Tidak diizinkan menghapus pesan ini.');
+          }
+        } catch (error) {
+          logger.error('[Socket.IO] GAGAL saat delete_message:', error);
+          socket.emit('operation_error', 'Gagal menghapus pesan.');
+        }
+      });
+
+      // 🆕 EVENT: TYPING INDICATOR
+      socket.on('typing:start', async (payload) => {
+        try {
+          const { conversationId } = payload;
+          
+          // Broadcast to others in room (exclude sender)
+          socket.to(conversationId.toString()).emit('typing:start', {
+            conversationId: conversationId,
+            userType: socket.userType,
+            userId: socket.userType === 'admin' ? socket.adminId : socket.visitorId
+          });
+
+          logger.debug(`[Socket] Typing started: ${socket.userType} in convo ${conversationId}`);
+        } catch (error) {
+          logger.error('[Socket.IO] GAGAL saat typing:start:', error);
+        }
+      });
+
+      socket.on('typing:stop', async (payload) => {
+        try {
+          const { conversationId } = payload;
+          
+          // Broadcast to others in room (exclude sender)
+          socket.to(conversationId.toString()).emit('typing:stop', {
+            conversationId: conversationId,
+            userType: socket.userType,
+            userId: socket.userType === 'admin' ? socket.adminId : socket.visitorId
+          });
+
+          logger.debug(`[Socket] Typing stopped: ${socket.userType} in convo ${conversationId}`);
+        } catch (error) {
+          logger.error('[Socket.IO] GAGAL saat typing:stop:', error);
+        }
+      });
+
+      // 🆕 EVENT: CONVERSATION STATUS UPDATE
+      socket.on('conversation:update_status', async (payload) => {
+        try {
+          if (socket.userType !== 'admin') {
+            return socket.emit('operation_error', 'Hanya admin yang bisa mengubah status percakapan.');
+          }
+
+          const { conversationId, status } = payload;
+          
+          // Validate status
+          if (!['open', 'closed', 'pending'].includes(status)) {
+            return socket.emit('operation_error', 'Status tidak valid.');
+          }
+
+          const [affected] = await db.Conversation.update(
+            { status: status },
+            { where: { id: conversationId } }
+          );
+
+          if (affected > 0) {
+            // Broadcast to all connected sockets
+            io.emit('conversation:updated', {
+              conversationId: conversationId,
+              status: status
+            });
+
+            logger.info(`[Socket] Conversation ${conversationId} status changed to ${status} by admin ${socket.adminId}`);
+          }
+        } catch (error) {
+          logger.error('[Socket.IO] GAGAL saat conversation:update_status:', error);
+          socket.emit('operation_error', 'Gagal mengubah status percakapan.');
+        }
+      });
+
       // (H) EVENT: DISCONNECT
       socket.on('disconnect', () => {
         // ... (Logika disconnect Anda sudah benar) ...

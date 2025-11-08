@@ -1,10 +1,9 @@
 name: Analyze - Dashboard bundle
 
 on:
-  workflow_dispatch:
-    inputs: {}
+  workflow_dispatch: {}
   push:
-    branches: [ main, feat/*, '**' ]
+    branches: [ main, 'feat/*', '**' ]
 
 jobs:
   analyze-dashboard:
@@ -24,13 +23,45 @@ jobs:
         working-directory: dashboard
         run: npm ci
 
-      - name: Run bundle analyze (build with ANALYZE)
+      - name: Ensure tmp dir exists
+        run: mkdir -p tmp
+
+      - name: Run bundle analyze (explicit)
         working-directory: dashboard
         env:
           ANALYZE: 'true'
         run: |
-          # Build with analyze flag (Vite config should load visualizer when ANALYZE=true)
-          npm run build --if-present || npm run analyze --if-present || true
+          # Prefer explicit analyze script which sets ANALYZE env
+          npm run analyze --if-present || npm run build --if-present || true
+
+      - name: "Debug: list generated files"
+        run: |
+          echo "--- list repo root tmp ---"
+          ls -la tmp || true
+          echo "--- search for visualizer html ---"
+          find . -type f -iname '*visualizer*.html' -maxdepth 6 -print || true
+          echo "--- list dashboard dist (if any) ---"
+          ls -la dashboard/dist || true
+
+      - name: Compute gzipped sizes and enforce budget
+        run: |
+          echo "Computing gzipped sizes for dashboard/dist/assets"
+          node scripts/gzip-sizes.js dashboard/dist/assets > sizes.txt || true
+          cat sizes.txt || true
+          VENDOR_GZ=$(node -e "const fs=require('fs');const s=fs.readFileSync('sizes.txt','utf8');const m=s.match(/vendor_react[^\n]*gz:(\d+)/);console.log(m?m[1]:'0');")
+          echo "vendor_react gzipped size: $VENDOR_GZ bytes"
+          # Threshold (bytes)
+          THRESHOLD=150000
+          if [ "$VENDOR_GZ" -gt "$THRESHOLD" ]; then
+            echo "ERROR: vendor_react gzipped size ($VENDOR_GZ) exceeds threshold ($THRESHOLD)" >&2
+            exit 1
+          fi
+
+      - name: Remove source maps before upload
+        if: always()
+        run: |
+          echo "Removing .map files from dashboard/dist (if any)"
+          find dashboard/dist -type f -name '*.map' -print -delete || true
 
       - name: Collect dist and visualizer
         if: always()
@@ -39,5 +70,5 @@ jobs:
           name: dashboard-analyze-artifacts
           path: |
             dashboard/dist
-            tmp/dashboard-visualizer.html
-            tmp/*-visualizer.html
+            **/*visualizer*.html
+            sizes.txt

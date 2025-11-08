@@ -1,0 +1,52 @@
+=================================
+INSTRUKSI MANUAL INSERT KOMPONEN
+=================================
+
+File: dashboard/src/pages/DashboardPage.jsx
+Lokasi: Sekitar baris 261-263
+
+LANGKAH:
+1. Buka file DashboardPage.jsx di VSCode
+2. Tekan Ctrl+G dan ketik "262" untuk go to line 262
+3. Anda akan melihat baris seperti ini:
+   
+   ) : (
+     <>
+       {/* (1) Area Pesan (Polished V15.9) */}
+
+4. Tambahkan kode berikut SETELAH baris `<>` dan SEBELUM komentar `{/* (1) Area Pesan...`:
+
+{/* Visitor Info Panel */}
+<VisitorInfoPanel 
+  visitor={visitorInfo} 
+  conversationMeta={conversationMeta} 
+  website={websiteInfo}
+/>
+
+5. Hasil akhir harus terlihat seperti ini:
+
+   ) : (
+     <>
+       {/* Visitor Info Panel */}
+       <VisitorInfoPanel 
+         visitor={visitorInfo} 
+         conversationMeta={conversationMeta} 
+         website={websiteInfo}
+       />
+       
+       {/* (1) Area Pesan (Polished V15.9) */}
+       <div className="chat-messages-admin">
+         {messages.map(msg => (
+
+6. Save file (Ctrl+S)
+
+VERIFIKASI:
+✅ Backend sudah enhanced (conversation.controller.js)
+✅ VisitorInfoPanel component sudah dibuat
+✅ State sudah ditambahkan (visitorInfo, conversationMeta, websiteInfo)
+✅ fetchMessages sudah diupdate untuk extract visitor data
+✅ CSS sudah dibuat (visitor-panel.css)
+✅ Import CSS sudah ditambahkan
+⏳ PERLU: Insert komponen ke JSX (MANUAL - ikuti langkah di atas)
+
+Setelah langkah manual selesai, fitur Visitor Info Panel akan KOMPLIT dan bisa ditest!
