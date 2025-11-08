@@ -6,8 +6,9 @@ let visualizerPlugin = null
 if (process.env.ANALYZE === 'true') {
   // Use dynamic ESM import (supported in Node ESM) to load the plugin only when needed
   const { visualizer } = await import('rollup-plugin-visualizer')
+  // write visualizer into repo-level tmp/ so the workflow can find and upload it
   visualizerPlugin = visualizer({
-    filename: path.resolve(__dirname, '..', '..', 'tmp', 'dashboard-visualizer.html'),
+    filename: path.resolve(__dirname, '..', 'tmp', 'dashboard-visualizer.html'),
     title: 'dashboard bundle visualizer',
     sourcemap: true,
     gzipSize: true,
