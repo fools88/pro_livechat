@@ -226,11 +226,11 @@ const registerSocketHandlers = (io) => {
             });
 
             let [conversation, isNewConversation] = await db.Conversation.findOrCreate({
-              where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
+              where: { visitorId: visitor.id, websiteId: website.id, status: 'new' },
               defaults: {
                 visitorId: visitor.id,
                 websiteId: website.id,
-                status: 'open',
+                status: 'new',
                 isAiActive: website.isAiEnabled
               }
             });
@@ -308,11 +308,11 @@ const registerSocketHandlers = (io) => {
   logger.debug(`--- [DEBUG] Visitor Ditemukan/Dibuat: ${visitor.id}`);
 
         let [conversation, isNewConversation] = await db.Conversation.findOrCreate({
-          where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
+          where: { visitorId: visitor.id, websiteId: website.id, status: 'new' },
           defaults: {
             visitorId: visitor.id,
             websiteId: website.id,
-            status: 'open',
+            status: 'new',
             isAiActive: website.isAiEnabled
           }
         });
