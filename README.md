@@ -220,8 +220,8 @@ set REQUIRE_WIDGET_TOKEN=true
 node tools/e2e_agent_assist_test.js
 ```
 
-Notes:
-- Do NOT commit real secrets into the repository. For CI, add `JWT_SECRET` and DB credentials to your GitHub repository secrets.
+- Notes:
+- Do NOT commit real secrets into the repository. For CI, we use a canonical secret name: `CI_JWT_SECRET` (mapped into runtime as `JWT_SECRET`). Add the CI secret and DB credentials to your GitHub repository secrets.
 - Once CI validates token-only flow, consider removing the legacy `widgetKey` fallback in production to harden security.
 
 GitHub Secrets (opsional untuk CI non-deterministik)
@@ -246,7 +246,7 @@ Ensure you have `gh` installed and are authenticated (`gh auth login`). Run thes
 ```cmd
 cd /d C:\Benny\pro_livechat
 # set required secrets (example values shown, replace with your real secrets)
-gh secret set JWT_SECRET --body "ci-test-secret"
+gh secret set CI_JWT_SECRET --body "ci-test-secret"
 gh secret set DB_USER --body "postgres"
 gh secret set DB_PASSWORD --body "postgres"
 gh secret set DB_HOST --body "127.0.0.1"

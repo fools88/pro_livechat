@@ -12,6 +12,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate CI secrets
+        run: |
+          if [ -z "${CI_JWT_SECRET}" ]; then
+            echo "ERROR: CI_JWT_SECRET is not set. Please add repository Actions secret CI_JWT_SECRET"
+            exit 1
+          fi
+        env:
+          CI_JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
+
       - name: Ensure docker compose is available
         run: |
           if docker compose version >/dev/null 2>&1; then

@@ -47,6 +47,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate CI secrets
+        run: |
+          if [ -z "${CI_JWT_SECRET}" ]; then
+            echo "ERROR: CI_JWT_SECRET is not set. Please add repository Actions secret CI_JWT_SECRET"
+            exit 1
+          fi
+        env:
+          CI_JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -205,7 +214,7 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
           PORT: 8081
-          JWT_SECRET: ci-test-secret
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
           MOCK_AI: 'true'
           MOCK_VECTOR: 'true'
           LOG_LEVEL: debug
@@ -218,7 +227,7 @@ jobs:
       - name: Run E2E capture
         working-directory: server
         env:
-          JWT_SECRET: ci-test-secret
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
         run: node tools/run_e2e_and_capture.js || true
 
       - name: Upload E2E artifact
@@ -241,7 +250,7 @@ jobs:
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
       DB_NAME: prochat_db
-      JWT_SECRET: ci-test-secret
+      JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
