@@ -127,6 +127,36 @@ jobs:
             exit $rc
           fi
 
+      - name: Run E2E Agent-Assist (capture output)
+        run: |
+          echo "Running E2E agent-assist script (server/tools/run_e2e_and_capture.js)"
+          # Do not fail the step immediately; capture exit code to file for later evaluation
+          set +e
+          cd server
+          node tools/run_e2e_and_capture.js
+          rc=$?
+          echo $rc > tmp_e2e_exitcode
+          set -e
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-e2e-output
+          path: |
+            server/tmp_e2e_output.txt
+            server/tmp_e2e_direct.txt
+            server/tmp_e2e_exitcode
+
+      - name: Fail if E2E failed
+        if: always()
+        run: |
+          rc=$(cat server/tmp_e2e_exitcode || echo 1)
+          if [ "$rc" -ne 0 ]; then
+            echo "E2E script failed (exit $rc). See server-e2e-output artifact for details."
+            exit $rc
+          fi
+
       - name: Upload infra status artifact
         if: always()
         uses: actions/upload-artifact@v4
