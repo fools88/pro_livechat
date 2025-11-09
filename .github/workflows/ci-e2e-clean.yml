@@ -53,6 +53,43 @@ jobs:
         working-directory: server
         run: npm ci
 
+      - name: Reset DB (ensure clean)
+        working-directory: server
+        env:
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          for i in `seq 1 30`; do
+            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
+          done
+          export PGPASSWORD="${DB_PASSWORD}"
+          dropdb --if-exists prochat_db || true
+          createdb --owner=${DB_USER} prochat_db || true
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
+
+      - name: Reset DB (ensure clean)
+        working-directory: server
+        env:
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          # wait for postgres service
+          for i in `seq 1 30`; do
+            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
+          done
+          export PGPASSWORD="${DB_PASSWORD}"
+          # recreate the CI database to ensure a clean state
+          dropdb --if-exists prochat_db || true
+          createdb --owner=${DB_USER} prochat_db || true
+          # ensure a database with the same name as the DB user exists (some scripts expect it)
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
+
       - name: Run DB migrations
         working-directory: server
         env:
@@ -257,6 +294,23 @@ jobs:
         working-directory: server
         run: |
           npm ci
+
+      - name: Reset DB (ensure clean)
+        working-directory: server
+        env:
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          for i in `seq 1 30`; do
+            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
+          done
+          export PGPASSWORD="${DB_PASSWORD}"
+          dropdb --if-exists ${DB_NAME:-prochat_db} || true
+          createdb --owner=${DB_USER} ${DB_NAME:-prochat_db} || true
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
 
       - name: Run DB migrations (if any)
         working-directory: server
