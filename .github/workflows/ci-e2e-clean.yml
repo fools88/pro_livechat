@@ -44,11 +44,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure Docker Compose plugin is available
+      - name: Ensure docker-compose binary is available
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y docker-compose-plugin
-          docker compose version
+          sudo apt-get install -y curl
+          # If docker compose plugin exists, use it. Otherwise install docker-compose binary.
+          if docker compose version >/dev/null 2>&1; then
+            echo "docker compose plugin available"
+          else
+            echo "Installing docker-compose binary"
+            ARCH=$(uname -m)
+            OS=$(uname -s)
+            case "$ARCH" in
+              x86_64) ARCH_STR="linux-x86_64" ;;
+              aarch64) ARCH_STR="linux-aarch64" ;;
+              *) ARCH_STR="linux-x86_64" ;;
+            esac
+            VERSION="v2.20.2"
+            URL="https://github.com/docker/compose/releases/download/${VERSION}/docker-compose-${OS}-${ARCH_STR}"
+            sudo curl -L "$URL" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          docker-compose --version || true
+          docker compose version || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
