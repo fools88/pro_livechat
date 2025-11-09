@@ -251,9 +251,9 @@ const registerSocketHandlers = (io) => {
               logger.info(`[Socket] New conversation ${conversation.id} created via token, broadcasting to admins...`);
               const convoWithDetails = await db.Conversation.findByPk(conversation.id, {
                 include: [
-                  { model: db.Visitor, as: 'visitor' },
-                  { model: db.Website, as: 'website' },
-                  { model: db.Message, as: 'Messages', limit: 1, order: [['createdAt', 'DESC']] }
+                  { model: db.Visitor },
+                  { model: db.Website },
+                  { model: db.Message, limit: 1, order: [['createdAt', 'DESC']] }
                 ]
               });
               io.emit('new_conversation', convoWithDetails);
