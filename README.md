@@ -312,3 +312,4 @@ Or open Actions → select workflow → view run in GitHub web UI to inspect log
 copy server\.env.example server\.env.local
 # Edit server\.env.local dan sesuaikan JWT_SECRET/DB sebelum menjalankan server lokal (jangan commit secrets)
 ```
+\n# CI trigger:    
