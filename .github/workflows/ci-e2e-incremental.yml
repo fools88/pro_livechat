@@ -83,7 +83,7 @@ jobs:
 
       - name: Start server in background (capture logs)
         env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
           NODE_ENV: test
         run: |
           echo "Starting server (NODE_ENV=test) and redirecting stdout/stderr to server-logs/"
@@ -140,7 +140,7 @@ jobs:
 
       - name: Run E2E Agent-Assist (capture output)
         env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
           SERVER_URL: http://localhost:8080
         run: |
           echo "Running E2E agent-assist script (server/tools/run_e2e_and_capture.js)"
