@@ -44,6 +44,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure Docker Compose plugin is available
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y docker-compose-plugin
+          docker compose version
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -280,7 +286,7 @@ jobs:
 
       - name: Start infra (Docker Compose)
         run: |
-          docker-compose -f docker-compose.ci.yml up -d
+          docker compose -f docker-compose.ci.yml up -d
 
       - name: Wait for services (quick loop)
         run: |
@@ -393,4 +399,4 @@ jobs:
       - name: Tear down infra
         if: always()
         run: |
-          docker-compose -f docker-compose.ci.yml down --volumes
+          docker compose -f docker-compose.ci.yml down --volumes
