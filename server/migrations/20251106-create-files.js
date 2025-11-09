@@ -17,7 +17,8 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: true,
         references: {
-          model: 'messages',
+          // Message table is defined as "Messages" in other migrations/models
+          model: 'Messages',
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -28,7 +29,8 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'conversations',
+          // Conversation table is defined as "Conversations" in other migrations/models
+          model: 'Conversations',
           key: 'id'
         },
         onUpdate: 'CASCADE',
