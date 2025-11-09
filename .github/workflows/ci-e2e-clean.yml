@@ -306,6 +306,28 @@ jobs:
         run: |
           docker compose -f docker-compose.ci.yml up -d
 
+      - name: Ensure DBs inside Postgres container
+        run: |
+          echo "Waiting for Postgres container to be ready..."
+          # Wait for the db service to report ready via pg_isready inside the container
+          for i in `seq 1 40`; do
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
+              echo "Postgres ready inside container" && break
+            fi
+            echo "Postgres not ready yet (attempt $i)";
+            sleep 2
+          done
+
+          # Create target databases if missing. Use DB credentials from workflow env.
+          # Note: run psql inside the postgres container to ensure DB is created in the right cluster.
+          docker compose -f docker-compose.ci.yml exec -T db sh -c '
+            export PGPASSWORD=""; 
+            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochatadmin\'" | grep -q 1 || \
+              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochatadmin;" || true; 
+            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochat_db\'" | grep -q 1 || \
+              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochat_db;" || true'
+
+
       - name: Wait for services (quick loop)
         run: |
           echo "Waiting for infra services to settle..."
