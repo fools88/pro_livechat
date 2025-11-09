@@ -118,6 +118,8 @@ npm run dev -- --port 5174
 | **Redis**        | 6379  | localhost:6379              |
 | **MinIO API**    | 9000  | http://localhost:9000       |
 | **MinIO Console**| 9001  | http://localhost:9001       |
+
+<!-- CI trigger: no-op commit to start workflows - 2025-11-09T10:55Z -->
 | **Server Backend**| 8081 | http://localhost:8081       |
 | **Dashboard**    | 5173  | http://localhost:5173       |
 | **Widget**       | 5174  | http://localhost:5174       |

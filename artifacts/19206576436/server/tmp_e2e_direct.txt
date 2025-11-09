@@ -1,0 +1,8 @@
+---E2E_DIRECT_START 2025-11-09T09:34:31.677Z
+2025-11-09T09:34:31.681Z [TEST] Admin token dibuat
+2025-11-09T09:34:31.733Z [TEST] Menggunakan website yang sudah ada: f60e196a-6728-4e4c-a11d-131b6b4db799 widgetKey=833b106c-f1f8-44bc-93c5-daf1a9c163f1
+2025-11-09T09:34:31.746Z [TEST] Widget token diterima (will use token for socket connection)
+2025-11-09T09:34:31.756Z [TEST] Admin socket connected, id=55ROw6BBhfHB7N6lAAAC
+2025-11-09T09:34:31.758Z [TEST] Visitor connected, id=ILw_wJPYv38NI0RXAAAD
+2025-11-09T09:34:31.772Z [TEST] Visitor connection_success, conversationId=57d535cd-5a52-40c6-89c4-ac58ff7776a0
+2025-11-09T09:34:32.285Z [TEST] Admin menerima ai_suggestion: {"conversationId":"57d535cd-5a52-40c6-89c4-ac58ff7776a0","suggestion":"Saran: \"Baik kak, bisa tolong diperjelas pertanyaannya? Biar saya bisa bantu lebih detail 😊\"","categoryId":null,"categoryName":null,"confidence":30}

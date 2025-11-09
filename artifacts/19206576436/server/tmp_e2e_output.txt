@@ -1,0 +1,15 @@
+---RUN_E2E_AND_CAPTURE START 2025-11-04T12:08:55.859Z
+[2025-11-04T12:08:55.981Z] [INFO] [TEST] Admin token dibuat
+[2025-11-04T12:08:55.982Z] [INFO] [TEST][fetch] Attempt 1 -> POST http://localhost:8081/api/websites/
+[2025-11-04T12:08:56.007Z] [ERROR] [TEST][fetch] Attempt 1 failed for http://localhost:8081/api/websites/: fetch failed
+[2025-11-04T12:08:56.521Z] [INFO] [TEST][fetch] Attempt 2 -> POST http://localhost:8081/api/websites/
+[2025-11-04T12:08:56.523Z] [ERROR] [TEST][fetch] Attempt 2 failed for http://localhost:8081/api/websites/: fetch failed
+[2025-11-04T12:08:57.539Z] [INFO] [TEST][fetch] Attempt 3 -> POST http://localhost:8081/api/websites/
+[2025-11-04T12:08:57.542Z] [ERROR] [TEST][fetch] Attempt 3 failed for http://localhost:8081/api/websites/: fetch failed
+[2025-11-04T12:08:57.542Z] [INFO] [TEST][fetch] Falling back to built-in client for http://localhost:8081/api/websites/
+[2025-11-04T12:08:57.548Z] [ERROR] [TEST][fetch] Built-in fallback also failed: 
+[2025-11-04T12:08:57.548Z] [ERROR] [TEST] Error during E2E test: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+
+---PROCESS-END code=1 signal=null timestamp=2025-11-04T12:08:57.556Z
