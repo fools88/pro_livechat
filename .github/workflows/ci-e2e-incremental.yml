@@ -127,6 +127,14 @@ jobs:
             exit $rc
           fi
 
+      - name: "Diagnostic: check server ports 8080 and 8081"
+        if: always()
+        run: |
+          echo "Diagnostic: curl http://127.0.0.1:8080/health";
+          curl -v --max-time 3 http://127.0.0.1:8080/health || true;
+          echo "Diagnostic: curl http://127.0.0.1:8081/health";
+          curl -v --max-time 3 http://127.0.0.1:8081/health || true;
+
       - name: Run E2E Agent-Assist (capture output)
         run: |
           echo "Running E2E agent-assist script (server/tools/run_e2e_and_capture.js)"

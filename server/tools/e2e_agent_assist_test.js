@@ -147,7 +147,10 @@ async function requestWidgetToken(serverUrl, website, attempts = 3, delayMs = 50
 }
 
 (async () => {
-  const SERVER = process.env.SERVER_URL || 'http://localhost:8081';
+  // Prefer explicit SERVER_URL, otherwise derive from PORT or default to 8080
+  const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 8080}`;
+  logger.info('[TEST] Using server base URL: ' + SERVER);
+  writeDirect('[TEST] Using server base URL: ' + SERVER);
   const ADMIN_SECRET = process.env.JWT_SECRET || 'prochat-rahasia';
 
   // 1. Buat token admin
