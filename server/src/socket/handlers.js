@@ -174,13 +174,13 @@ const registerSocketHandlers = (io) => {
               ? `${secret.slice(0, Math.min(3, secret.length))}...${secret.slice(Math.max(0, secret.length - 3))} (len=${secret.length})`
               : 'MISSING';
             try {
-              logger.debug('--- [DEBUG] JWT verification attempt. JWT_SECRET present=', Boolean(process.env.JWT_SECRET), 'secretInfo=', secretInfo);
+              logger.debug(`--- [DEBUG] JWT verification attempt. JWT_SECRET present=${Boolean(process.env.JWT_SECRET)} secretInfo=${secretInfo}`);
             } catch (e) {
               // defensive: console.log should not crash
             }
             // show a short prefix of the token to correlate logs without printing whole token
             const tokenPrefix = token && token.length ? token.slice(0, 40) + (token.length > 40 ? '...' : '') : '<empty>';
-            logger.debug('--- [DEBUG] Token prefix:', tokenPrefix);
+            logger.debug(`--- [DEBUG] Token prefix=${tokenPrefix}`);
           }
 
           let decoded;
@@ -194,18 +194,15 @@ const registerSocketHandlers = (io) => {
                 if (decoded.websiteId) summary.websiteId = decoded.websiteId;
                 if (decoded.exp) summary.exp = decoded.exp;
               }
-              logger.debug('--- [DEBUG] Token verified OK. Decoded payload summary:', summary);
+              logger.debug(`--- [DEBUG] Token verified OK. Decoded payload summary=${JSON.stringify(summary)}`);
             }
           } catch (verifyErr) {
             // decode without verification to inspect payload values (safe to log)
             const decodedUnverified = jwt.decode(token) || null;
             if (jwtDebug) {
-              logger.warn('--- [DEBUG] Token verification FAILED:', verifyErr && verifyErr.message);
-              logger.debug('--- [DEBUG] Decoded (unverified) payload summary:', decodedUnverified && {
-                id: decodedUnverified.id,
-                websiteId: decodedUnverified.websiteId,
-                exp: decodedUnverified.exp
-              });
+              logger.warn(`--- [DEBUG] Token verification FAILED: ${verifyErr && verifyErr.message}`);
+              const decodedSummary = decodedUnverified ? { id: decodedUnverified.id, websiteId: decodedUnverified.websiteId, exp: decodedUnverified.exp } : null;
+              logger.debug(`--- [DEBUG] Decoded (unverified) payload summary=${JSON.stringify(decodedSummary)}`);
             }
             throw verifyErr;
           }
