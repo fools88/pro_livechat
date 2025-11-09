@@ -317,11 +317,11 @@ jobs:
             sleep 2
           done
 
-          docker compose -f docker-compose.ci.yml exec -T db sh -c '
-            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochatadmin\'" | grep -q 1 || \
-              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochatadmin;" || true; 
-            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochat_db\'" | grep -q 1 || \
-              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochat_db;" || true'
+              docker compose -f docker-compose.ci.yml exec -T db sh -c '
+                export PGPASSWORD="${DB_PASSWORD}";
+                psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname='\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin;";
+                psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname='\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db;";
+              ' || true
 
       - name: Wait for services (quick loop)
         run: |
