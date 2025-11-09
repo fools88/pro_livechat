@@ -81,6 +81,52 @@ jobs:
             exit $rc
           fi
 
+      - name: Start server in background (capture logs)
+        run: |
+          echo "Starting server (NODE_ENV=test) and redirecting stdout/stderr to server-logs/"
+          mkdir -p server-logs
+          # Ensure NODE_ENV=test so /ready treats optional services as non-blocking
+          NODE_ENV=test npm --prefix server start > server-logs/server.log 2>&1 &
+          echo $! > server-logs/server.pid
+
+      - name: Wait for server /ready endpoint
+        run: |
+          echo "Polling http://127.0.0.1:8080/ready for readiness (up to 60 tries)"
+          mkdir -p tmp
+          success=1
+          for i in $(seq 1 60); do
+            http_status=$(curl -s -o tmp/ready_resp.txt -w "%{http_code}" http://127.0.0.1:8080/ready || true)
+            echo "attempt $i -> status=$http_status"
+            if [ "$http_status" = "200" ]; then
+              echo "Server ready"
+              success=0
+              break
+            fi
+            sleep 2
+          done
+          echo $success > tmp/ready_exitcode
+          if [ "$success" -ne 0 ]; then
+            echo "Server did not become ready in time; check server-logs/server.log and tmp/ready_resp.txt"
+          fi
+
+      - name: Upload server logs and tmp artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            server-logs
+            tmp
+
+      - name: Fail if server not ready
+        if: always()
+        run: |
+          rc=$(cat tmp/ready_exitcode || echo 1)
+          if [ "$rc" -ne 0 ]; then
+            echo "Server readiness failed (exit $rc); check artifacts server-logs and tmp"
+            exit $rc
+          fi
+
       - name: Upload infra status artifact
         if: always()
         uses: actions/upload-artifact@v4
