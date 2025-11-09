@@ -1,0 +1,70 @@
+[Storage] Peringatan: S3/MinIO keys (Endpoint, Region, Access Key, Secret Key) tidak ditemukan di .env. Fitur upload file tidak akan berjalan.
+[Database] GAGAL terhubung ke PostgreSQL: ConnectionError [SequelizeConnectionError]: password authentication failed for user "postgres"
+    at Client._connectionCallback (C:\Benny\pro_livechat\server\node_modules\sequelize\lib\dialects\postgres\connection-manager.js:145:24)
+    at Client._handleErrorWhileConnecting (C:\Benny\pro_livechat\server\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorMessage (C:\Benny\pro_livechat\server\node_modules\pg\lib\client.js:356:19)
+    at Connection.emit (node:events:508:28)
+    at C:\Benny\pro_livechat\server\node_modules\pg\lib\connection.js:116:12
+    at Parser.parse (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:36:17)
+    at Socket.<anonymous> (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\index.js:11:42)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3) {
+  parent: error: password authentication failed for user "postgres"
+      at Parser.parseErrorMessage (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:285:98)
+      at Parser.handlePacket (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:122:29)
+      at Parser.parse (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:35:38)
+      at Socket.<anonymous> (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\index.js:11:42)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 104,
+    severity: 'FATAL',
+    code: '28P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'auth.c',
+    line: '334',
+    routine: 'auth_failed'
+  },
+  original: error: password authentication failed for user "postgres"
+      at Parser.parseErrorMessage (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:285:98)
+      at Parser.handlePacket (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:122:29)
+      at Parser.parse (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\parser.js:35:38)
+      at Socket.<anonymous> (C:\Benny\pro_livechat\server\node_modules\pg-protocol\dist\index.js:11:42)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 104,
+    severity: 'FATAL',
+    code: '28P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'auth.c',
+    line: '334',
+    routine: 'auth_failed'
+  }
+}
+[process.exit] code=1

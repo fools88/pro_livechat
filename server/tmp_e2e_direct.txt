@@ -1,0 +1,8 @@
+---E2E_DIRECT_START 2025-11-04T14:03:31.260Z
+2025-11-04T14:03:31.263Z [TEST] Admin token dibuat
+2025-11-04T14:03:31.340Z [TEST] Menggunakan website yang sudah ada: 8fda6053-6ac0-4442-a5cd-97c196963d68 widgetKey=95440272-8362-4153-959b-ae867063831c
+2025-11-04T14:03:31.354Z [TEST] Widget token diterima (will use token for socket connection)
+2025-11-04T14:03:31.356Z [TEST] Admin socket connected, id=VVY4tC320gRsmss-AAAB
+2025-11-04T14:03:31.359Z [TEST] Visitor connected, id=NSTvQjBLGOoHi4_FAAAD
+2025-11-04T14:03:31.378Z [TEST] Visitor connection_success, conversationId=438b5602-67e8-4574-ad5e-c0e887e2e694
+2025-11-04T14:03:31.910Z [TEST] Admin menerima ai_suggestion: {"conversationId":"438b5602-67e8-4574-ad5e-c0e887e2e694","suggestion":"MOCK_RESPONSE for model gemini-2.5-flash: \nYou are a helpful assistant drafting a short, single-paragraph suggested reply","categoryId":null,"categoryName":null,"confidence":null}

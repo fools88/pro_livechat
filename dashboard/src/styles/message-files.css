@@ -1,0 +1,263 @@
+/* 🆕 V25: File Attachments - Clean & Vertically Aligned with Styled Open Button */
+.message-files {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* File card: 2 rows (row1 = icon + meta, row2 = actions) */
+.message-file-doc,
+.message-file-image {
+  position: relative; /* for overlay and focus rings */
+  display: grid;
+  /* single column but two rows: top = icon+meta, bottom = actions */
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  max-width: 360px;
+  min-height: 72px; /* slightly reduced since actions will sit in second row */
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  align-items: start; /* allow rows to stack naturally */
+  box-sizing: border-box;
+  overflow: hidden; /* ensure children (buttons/icons) don't visually escape the rounded card */
+}
+
+.message-file-doc:hover,
+.message-file-image:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--prochat-color-primary);
+  transform: translateY(-1px);
+}
+
+/* subtle overlay to improve text contrast on variable backgrounds */
+.message-file-doc::before,
+.message-file-image::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(rgba(0,0,0,0.06), rgba(0,0,0,0.06));
+  pointer-events: none;
+  z-index: 0; /* keep overlay behind interactive content */
+}
+
+/* Left group (icon + meta) wrapper */
+.file-left {
+  grid-column: 1; /* occupy the card's single column */
+  grid-row: 1; /* first row: icon + meta */
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-self: start; /* left-align the icon+meta block on the top row */
+  min-width: 0; /* CRITICAL: allows flex children to shrink */
+  width: 100%;
+}
+
+/* File icon */
+.file-icon {
+  font-size: 28px;
+  align-self: center;
+  justify-self: center;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0; /* [FIX TAMBAHAN] Mencegah ikon ter-gepeng */
+}
+
+/* Meta + Actions container */
+.file-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0; /* allow text ellipsis */
+  
+  /* [FIX 1] Ini adalah perbaikan utama. 
+    'flex: 1' memerintahkan elemen ini untuk mengambil sisa ruang 
+    yang tersedia di .file-left (setelah dikurangi ikon dan gap) 
+    dan TIDAK TUMBUH lebih besar. Ini memaksa .file-name 
+    untuk mematuhi max-width: 100% dan terpotong.
+  */
+  flex: 1; 
+  
+  /* [FIX 2] Menambahkan padding kanan agar teks yang terpotong 
+    tidak 'menabrak' atau bersembunyi di bawah stempel waktu 
+    (file-time) yang diposisikan secara absolut di kanan.
+  */
+  padding-right: 36px; /* sebelumnya: 8px */
+  
+  position: relative;
+  z-index: 1;
+}
+
+/* File name & size */
+.file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--prochat-color-text);
+  white-space: nowrap; /* single-line truncate */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+  margin: 0;
+  max-width: 100%; /* Sekarang akan berfungsi karena parent-nya (.file-meta) punya flex: 1 */
+  /* improve readability on semi-transparent backgrounds */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+}
+
+.file-size {
+  font-size: 11px;
+  color: var(--prochat-color-text-muted);
+  margin: 0;
+}
+
+.file-time {
+  font-size: 11px;
+  color: var(--prochat-color-text-muted);
+  opacity: 0.9;
+}
+
+/* Action buttons: Open + Download */
+
+
+/* Open button styled like download button */
+.file-open-btn {
+  /* Make Open a filled primary button with white text */
+  background: linear-gradient(180deg, var(--prochat-color-primary, #2f6ef7), color-mix(in srgb, var(--prochat-color-primary, #2f6ef7) 85%, black 10%));
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  height: 40px;
+  width: 92px; /* consistent button width like WhatsApp */
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  flex: 0 0 auto; /* ensure button doesn't grow/shrink unexpectedly */
+}
+
+.file-open-btn:hover {
+  filter: brightness(1.04);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(47,110,247,0.12);
+}
+
+/* Accessibility: visible focus for keyboard users */
+.file-open-btn:focus-visible,
+.file-download-btn:focus-visible {
+  outline: 3px solid rgba(47, 110, 247, 0.22);
+  outline-offset: 3px;
+  box-shadow: 0 8px 18px rgba(47,110,247,0.12);
+}
+
+/* Download button */
+.file-download-btn {
+  font-size: 18px;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0; /* use fixed width/height to match Open button */
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.12s ease;
+  color: #ffffff; /* white icon/text on solid background for contrast */
+  background: var(--prochat-color-primary, #2f6ef7); /* solid primary to stand out */
+  align-self: center; /* ensure vertical alignment */
+  flex: 0 0 auto; /* keep download button its natural size */
+  margin-left: 0; /* remove extra left offset so Open aligns with file name */
+  min-width: 92px;
+  min-height: 40px; /* accessible tap target */
+  width: 92px; /* match Open button width */
+  height: 40px; /* match Open button height */
+}
+
+.file-download-btn:hover {
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.file-download-icon {
+  width: 28px;
+  height: 28px;
+  color: #ffffff; /* ensure icon contrast when button background is primary */
+  border-radius: 6px;
+  display: block;
+}
+
+/* Ensure inline SVG icons adopt the currentColor for easy theming */
+.file-download-icon svg,
+.file-download-icon svg *,
+.file-icon svg,
+.file-icon svg * {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+/* timestamp in top-right like WhatsApp */
+.message-file-doc .file-time,
+.message-file-image .file-time {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 11px;
+  color: var(--prochat-color-text-muted);
+  opacity: 0.95;
+  z-index: 2; /* Pastikan di atas tumpukan */
+}
+
+/* ensure hit targets meet common accessibility sizes */
+.file-open-btn, .file-download-btn {
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+
+/* responsive: reduce columns and stack actions on narrow screens */
+@media (max-width: 420px) {
+  .message-file-doc,
+  .message-file-image {
+    /* Ini adalah layout yang berbeda untuk mobile. 
+      Jika Anda ingin nama file terpotong di sini juga, 
+      pastikan .file-meta (di kolom ke-2) punya 'min-width: 0'.
+      Kode V25 Anda sudah bagus.
+    */
+    grid-template-columns: 36px 1fr; 
+    gap: 10px;
+    padding: 10px 12px;
+    max-width: 92%;
+  }
+  .file-row-actions {
+    gap: 8px;
+    margin-top: 6px;
+  }
+}
+
+/* respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .message-file-doc,
+  .message-file-image,
+  .file-open-btn,
+  .file-download-btn { transition: none !important; transform: none !important; }
+}
+
+/* ensure action row items don't push beyond card edge on small widths */
+.file-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap; /* keep buttons on a single row */
+  grid-column: 1; /* occupy the single column */
+  grid-row: 2; /* second row: actions */
+  align-self: center;
+  justify-content: flex-start; /* [PERUBAHAN] Mulai dari kiri */
+  padding-top: 0;
+  padding-left: 0; /* ensure no extra left offset */
+  z-index: 1; /* keep above overlay */
+}

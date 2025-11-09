@@ -1,0 +1,63 @@
+{
+	"name": "server",
+	"version": "1.0.0",
+	"description": "Backend for Pro Livechat Application",
+	"main": "src/index.js",
+	"scripts": {
+		"test": "jest --runInBand",
+		"start": "node src/index.js",
+		"start:pm2": "pm2 start ecosystem.config.js --env production",
+		"lint": "echo \"No linter configured\"",
+		"dev": "nodemon",
+		"test:unit": "node tools/unit_test_generateSuggestion.js"
+	},
+	"keywords": [
+		"livechat",
+		"ai",
+		"gemini",
+		"node",
+		"express"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.540.0",
+		"@aws-sdk/s3-request-presigner": "^3.540.0",
+		"@google/generative-ai": "^0.14.0",
+		"@pinecone-database/pinecone": "^2.1.0",
+		"bcryptjs": "^2.4.3",
+		"cors": "^2.8.5",
+		"dotenv": "^16.4.5",
+		"express": "^4.19.2",
+		"express-rate-limit": "^6.10.0",
+		"file-type": "^21.0.0",
+		"jsonwebtoken": "^9.0.2",
+		"minio": "^8.0.6",
+		"multer": "^2.0.2",
+		"pdf-parse": "^2.0.0",
+		"pg": "^8.11.5",
+		"pm2": "^5.2.0",
+		"redis": "^4.6.14",
+		"sequelize": "^6.37.3",
+		"socket.io": "^4.7.5",
+		"socket.io-client": "^4.7.5",
+		"socket.io-redis": "^6.1.1",
+		"uuid": "^9.0.1",
+		"winston": "^3.9.0",
+		"winston-daily-rotate-file": "^4.7.1"
+	},
+	"devDependencies": {
+		"jest": "^29.6.1",
+		"nodemon": "^3.1.10",
+		"prom-client": "^14.0.0",
+		"sequelize-cli": "^6.6.0"
+	},
+	"nodemonConfig": {
+		"watch": [
+			"src",
+			".env"
+		],
+		"ext": "js,json,env,mjs,cjs",
+		"exec": "node src/index.js"
+	}
+}
