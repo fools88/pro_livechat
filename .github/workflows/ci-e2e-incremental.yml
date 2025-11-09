@@ -39,6 +39,47 @@ jobs:
       - name: Inspect docker compose ps
         run: docker compose -f docker-compose.ci.yml ps
 
+      - name: Install server dependencies
+        run: |
+          echo "Installing server dependencies (npm ci in ./server)"
+          npm ci --prefix server
+
+      - name: Run DB migrations (capture logs)
+        run: |
+          echo "Running Sequelize migrations and saving logs to migration-logs/"
+          mkdir -p migration-logs
+          # Run migrations against the Postgres started by docker-compose (exposed on localhost:5432)
+          DB_HOST=127.0.0.1 \
+            DB_PORT=5432 \
+            DB_USER=prochatadmin \
+            DB_PASSWORD=prochatpassword123 \
+            DB_NAME=prochat_db \
+            npx --yes sequelize-cli db:migrate \
+              --config server/config/config.js \
+              --migrations-path server/migrations \
+              --env test > migration-logs/migration.log 2>&1 || echo $? > migration-logs/exitcode
+
+          # Ensure there is an exitcode file (0 if success)
+          if [ ! -f migration-logs/exitcode ]; then
+            echo 0 > migration-logs/exitcode
+          fi
+
+      - name: Upload migration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-logs
+          path: migration-logs
+
+      - name: Fail job if migrations failed
+        if: always()
+        run: |
+          rc=$(cat migration-logs/exitcode || echo 0)
+          if [ "$rc" -ne 0 ]; then
+            echo "Migrations failed with exit code $rc; see migration-logs artifact"
+            exit $rc
+          fi
+
       - name: Upload infra status artifact
         if: always()
         uses: actions/upload-artifact@v4
