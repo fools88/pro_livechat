@@ -269,7 +269,13 @@ const registerSocketHandlers = (io) => {
             authHandled = true;
           }
         } catch (e) {
-          logger.debug('--- [DEBUG] Token verification failed, will fallback to widgetKey handling if provided.');
+          // More explicit debug: show the error message/stack so we know why token handling failed
+          try {
+            logger.warn(`--- [DEBUG] Token handling failed, will fallback to widgetKey handling if provided. error=${e && (e.message || e)}`);
+            logger.debug(`--- [DEBUG] Token handling error stack=${e && e.stack}`);
+          } catch (logErr) {
+            // swallow logging errors
+          }
         }
       }
 
