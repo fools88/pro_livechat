@@ -18,7 +18,7 @@ jobs:
         env:
           POSTGRES_USER: prochatadmin
           POSTGRES_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
-          POSTGRES_DB: prochat_db
+          POSTGRES_DB: prochatadmin
         options: >-
           --health-cmd "pg_isready -U prochatadmin" --health-interval 5s --health-timeout 2s --health-retries 20
       redis:
@@ -30,7 +30,7 @@ jobs:
     env:
       DB_USER: prochatadmin
       DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
-      DB_NAME: prochat_db
+      DB_NAME: prochatadmin
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
       PORT: 8081
@@ -189,6 +189,9 @@ jobs:
             server/ci_server.log
             server/server-ci.log
             server/logs/*.log
+            infra-all.log
+            infra-db.log
+            infra-ps.txt
             tmp/server_started.txt
             tmp/self_ready.log
             tmp/ready_checks.log
@@ -215,7 +218,7 @@ jobs:
         env:
           POSTGRES_USER: prochatadmin
           POSTGRES_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
-          POSTGRES_DB: prochat_db
+          POSTGRES_DB: prochatadmin
         options: >-
           --health-cmd "pg_isready -U prochatadmin" --health-interval 5s --health-timeout 2s --health-retries 10
       redis:
@@ -248,7 +251,7 @@ jobs:
         env:
           DB_USER: prochatadmin
           DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
-          DB_NAME: prochat_db
+          DB_NAME: prochatadmin
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
         run: npx sequelize-cli db:migrate --debug
@@ -258,7 +261,7 @@ jobs:
         env:
           DB_USER: prochatadmin
           DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
-          DB_NAME: prochat_db
+          DB_NAME: prochatadmin
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
           PORT: 8081
@@ -296,7 +299,7 @@ jobs:
       DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
-      DB_NAME: prochat_db
+      DB_NAME: prochatadmin
       JWT_SECRET: '${{ secrets.CI_JWT_SECRET }}'
     steps:
       - name: Checkout
@@ -308,25 +311,26 @@ jobs:
 
       - name: Ensure DBs inside Postgres container
         run: |
-          echo "Waiting for Postgres container to be ready..."
-          # Wait for the db service to report ready via pg_isready inside the container
-          for i in `seq 1 40`; do
-            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
-              echo "Postgres ready inside container" && break
-            fi
-            echo "Postgres not ready yet (attempt $i)";
-            sleep 2
-          done
+  echo "Waiting for Postgres container to be ready..."
+  for i in `seq 1 40`; do
+    if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochatadmin >/dev/null 2>&1; then
+      echo "Postgres ready inside container" && break
+    fi
+    echo "Postgres not ready yet (attempt $i)"
+    sleep 2
+  done
 
-          # Create target databases if missing. Use DB credentials from workflow env.
-          # Note: run psql inside the postgres container to ensure DB is created in the right cluster.
-          docker compose -f docker-compose.ci.yml exec -T db sh -c '
-            export PGPASSWORD=""; 
-            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochatadmin\'" | grep -q 1 || \
-              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochatadmin;" || true; 
-            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochat_db\'" | grep -q 1 || \
-              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochat_db;" || true'
+  # Create target databases if missing. Use DB credentials from workflow env.
+  docker compose -f docker-compose.ci.yml exec -T db sh -c '
+    export PGPASSWORD="${DB_PASSWORD}";
+    psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin";
+    psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db";
+  ' || true
 
+  echo "Capturing docker compose logs to infra-all.log and infra-db.log"
+  docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
+  docker compose -f docker-compose.ci.yml logs --no-color db > infra-db.log || true
+  docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
 
       - name: Wait for services (quick loop)
         run: |
@@ -429,6 +433,9 @@ jobs:
             server/ci_server.log
             server/server-ci.log
             server/logs/*.log
+            infra-all.log
+            infra-db.log
+            infra-ps.txt
             tmp/server_started.txt
             tmp/self_ready.log
             tmp/ready_checks.log
