@@ -38,10 +38,9 @@ jobs:
       LOG_LEVEL: debug
       MOCK_AI: 'true'
       MOCK_VECTOR: 'true'
-      REQUIRE_WIDGET_TOKEN: 'true'
-      JWT_DEBUG: 'true'
-      ALLOW_LEGACY_WIDGET_KEY: 'true'
-
+  REQUIRE_WIDGET_TOKEN: 'true'
+  JWT_DEBUG: 'true'
+  ALLOW_LEGACY_WIDGET_KEY: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -353,7 +352,6 @@ jobs:
                 psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname='\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin;";
                 psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname='\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db;";
               ' || true
-
       - name: Wait for services (quick loop)
         run: |
           echo "Waiting for infra services to settle..."
