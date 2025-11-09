@@ -5,6 +5,7 @@ on:
     branches: [ main, 'feat/*' ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch: {}
 
 jobs:
   server-e2e:
@@ -43,6 +44,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure docker-compose binary is available
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y curl
+          # If docker compose plugin exists, use it. Otherwise install docker-compose binary.
+          if docker compose version >/dev/null 2>&1; then
+            echo "docker compose plugin available"
+          else
+            echo "Installing docker-compose binary"
+            ARCH=$(uname -m)
+            OS=$(uname -s)
+            case "$ARCH" in
+              x86_64) ARCH_STR="linux-x86_64" ;;
+              aarch64) ARCH_STR="linux-aarch64" ;;
+              *) ARCH_STR="linux-x86_64" ;;
+            esac
+            VERSION="v2.20.2"
+            URL="https://github.com/docker/compose/releases/download/${VERSION}/docker-compose-${OS}-${ARCH_STR}"
+            sudo curl -L "$URL" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          docker-compose --version || true
+          docker compose version || true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -51,6 +76,43 @@ jobs:
       - name: Install server deps
         working-directory: server
         run: npm ci
+
+      - name: Reset DB (ensure clean)
+        working-directory: server
+        env:
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          for i in `seq 1 30`; do
+            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
+          done
+          export PGPASSWORD="${DB_PASSWORD}"
+          dropdb --if-exists prochat_db || true
+          createdb --owner=${DB_USER} prochat_db || true
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
+
+      - name: Reset DB (ensure clean)
+        working-directory: server
+        env:
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          # wait for postgres service
+          for i in `seq 1 30`; do
+            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
+          done
+          export PGPASSWORD="${DB_PASSWORD}"
+          # recreate the CI database to ensure a clean state
+          dropdb --if-exists prochat_db || true
+          createdb --owner=${DB_USER} prochat_db || true
+          # ensure a database with the same name as the DB user exists (some scripts expect it)
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
 
       - name: Run DB migrations
         working-directory: server
@@ -242,7 +304,24 @@ jobs:
 
       - name: Start infra (Docker Compose)
         run: |
-          docker-compose -f docker-compose.ci.yml up -d
+          docker compose -f docker-compose.ci.yml up -d
+
+      - name: Ensure DBs inside Postgres container
+        run: |
+          echo "Waiting for Postgres container to be ready..."
+          for i in `seq 1 40`; do
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
+              echo "Postgres ready inside container" && break
+            fi
+            echo "Postgres not ready yet (attempt $i)";
+            sleep 2
+          done
+
+          docker compose -f docker-compose.ci.yml exec -T db sh -c '
+            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochatadmin\'" | grep -q 1 || \
+              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochatadmin;" || true; 
+            PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname=\'prochat_db\'" | grep -q 1 || \
+              PGPASSWORD="'""${DB_PASSWORD}"'"" psql -U prochatadmin -c "CREATE DATABASE prochat_db;" || true'
 
       - name: Wait for services (quick loop)
         run: |
@@ -256,6 +335,23 @@ jobs:
         working-directory: server
         run: |
           npm ci
+
+      - name: Reset DB (ensure clean)
+        working-directory: server
+        env:
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          for i in `seq 1 30`; do
+            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
+          done
+          export PGPASSWORD="${DB_PASSWORD}"
+          dropdb --if-exists ${DB_NAME:-prochat_db} || true
+          createdb --owner=${DB_USER} ${DB_NAME:-prochat_db} || true
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
 
       - name: Run DB migrations (if any)
         working-directory: server
@@ -338,4 +434,4 @@ jobs:
       - name: Tear down infra
         if: always()
         run: |
-          docker-compose -f docker-compose.ci.yml down --volumes
+          docker compose -f docker-compose.ci.yml down --volumes
