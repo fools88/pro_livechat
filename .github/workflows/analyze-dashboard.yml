@@ -60,6 +60,21 @@ jobs:
             exit 1
           fi
 
+      - name: Inject gzip sizes into visualizer and extract vendor composition
+        if: always()
+        run: |
+          echo "Looking for generated visualizer HTML in tmp/ and injecting measured sizes"
+          # find the visualizer file (created by analyzer) and inject measured gz sizes
+          VISUALIZER=$(find tmp -type f -iname '*visualizer*.html' -print -maxdepth 2 | head -n 1 || true)
+          if [ -n "$VISUALIZER" ]; then
+            echo "Found visualizer: $VISUALIZER"
+            node scripts/inject-gzip-into-visualizer.js "$VISUALIZER" sizes.txt tmp/dashboard-visualizer-injected.html || true
+            echo "Running vendor composition extractor"
+            node scripts/extract-vendor-composition.js tmp/dashboard-visualizer-injected.html sizes.txt > tmp/vendor-audit.md || true
+          else
+            echo "No visualizer HTML found to inject" >&2
+          fi
+
       - name: Remove source maps before upload
         if: always()
         run: |
