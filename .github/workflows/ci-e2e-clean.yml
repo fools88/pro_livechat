@@ -39,6 +39,8 @@ jobs:
       MOCK_AI: 'true'
       MOCK_VECTOR: 'true'
       REQUIRE_WIDGET_TOKEN: 'true'
+  JWT_DEBUG: 'true'
+  ALLOW_LEGACY_WIDGET_KEY: 'true'
 
     steps:
       - name: Checkout
@@ -138,6 +140,8 @@ jobs:
           MOCK_AI: ${{ env.MOCK_AI }}
           MOCK_VECTOR: ${{ env.MOCK_VECTOR }}
           LOG_LEVEL: ${{ env.LOG_LEVEL }}
+          JWT_DEBUG: ${{ env.JWT_DEBUG }}
+          ALLOW_LEGACY_WIDGET_KEY: ${{ env.ALLOW_LEGACY_WIDGET_KEY }}
         run: |
           nohup node src/index.js > ci_server.log 2>&1 &
           sleep 2
@@ -266,6 +270,8 @@ jobs:
           MOCK_AI: 'true'
           MOCK_VECTOR: 'true'
           LOG_LEVEL: debug
+          JWT_DEBUG: 'true'
+          ALLOW_LEGACY_WIDGET_KEY: 'true'
         run: nohup node run_server_local.js > server_ci.log 2>&1 & sleep 2
 
       - name: Wait for /ready
@@ -298,6 +304,8 @@ jobs:
       DB_PORT: 5432
       DB_NAME: prochat_db
       JWT_SECRET: '${{ secrets.CI_JWT_SECRET }}'
+      JWT_DEBUG: 'true'
+      ALLOW_LEGACY_WIDGET_KEY: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
