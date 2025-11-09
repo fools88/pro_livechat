@@ -17,6 +17,54 @@ jobs:
           if docker compose version >/dev/null 2>&1; then
             echo "docker compose plugin available"
           else
+            echo "docker compose plugin not available; consider installing or using runner with docker compose"
+          fi
+
+      - name: Start docker compose infra
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for Postgres in container
+        run: |
+          echo "Waiting for Postgres (inside compose) to become ready..."
+          for i in $(seq 1 40); do
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
+              echo "Postgres ready" && exit 0
+            fi
+            echo "not ready (attempt $i)";
+            sleep 2
+          done
+          echo "Postgres did not become ready" && exit 1
+
+      - name: Inspect docker compose ps
+        run: docker compose -f docker-compose.ci.yml ps
+
+      - name: Upload infra status artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-status
+          path: |
+            .github/workflows/ci-e2e-incremental.yml
+name: CI - E2E incremental (infra only)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  infra:
+    name: Infra (docker-compose only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure docker compose is available
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            echo "docker compose plugin available"
+          else
             echo "docker compose plugin not available; fallback not installed in this minimal job"
           fi
 
@@ -44,5 +92,102 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: infra-status
+          path: |
+            .github/workflows/ci-e2e-incremental.yml
+name: CI - E2E incremental (infra only)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  infra:
+    name: Infra (docker-compose only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure docker compose is available
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            echo "docker compose plugin available"
+          else
+            echo "docker compose plugin not available; fallback not installed in this minimal job"
+          fi
+
+      - name: Start docker compose infra
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for Postgres in container
+        run: |
+          echo "Waiting for Postgres (inside compose) to become ready..."
+          for i in $(seq 1 40); do
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
+              echo "Postgres ready" && exit 0
+            fi
+            echo "not ready (attempt $i)";
+            sleep 2
+          done
+          echo "Postgres did not become ready" && exit 1
+
+      - name: Inspect docker compose ps
+        run: docker compose -f docker-compose.ci.yml ps
+
+      - name: Upload infra status artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-status
+          path: |
+            .github/workflows/ci-e2e-incremental.yml
+name: CI - E2E incremental (infra only)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  infra:
+    name: Infra (docker-compose only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure docker compose is available
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            echo "docker compose plugin available"
+          else
+            echo "docker compose plugin not available; fallback not installed in this minimal job"
+          fi
+
+      - name: Start docker compose infra
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for Postgres in container
+        run: |
+          echo "Waiting for Postgres (inside compose) to become ready..."
+          for i in $(seq 1 40); do
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
+              echo "Postgres ready" && exit 0
+            fi
+            echo "not ready (attempt $i)";
+            sleep 2
+          done
+          echo "Postgres did not become ready" && exit 1
+
+      - name: Inspect docker compose ps
+        run: docker compose -f docker-compose.ci.yml ps
+
+      - name: Upload infra status artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-status
+
           path: |
             .github/workflows/ci-e2e-incremental.yml
