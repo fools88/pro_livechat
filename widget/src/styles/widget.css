@@ -1,0 +1,174 @@
+/* /widget/src/styles/widget.css
+(VERSI V-POLISHED - DENGAN CSS VARIABLES) */
+
+/* --- (A) PUSAT KONTROL TEMA ---
+  Ganti warna di sini untuk mengubah seluruh tampilan widget
+*/
+:root {
+  /* Warna Utama (Gelembung Chat, Bubble Visitor, Header) */
+  --prochat-primary-color: #00ff00; 
+
+  /* Warna Teks di atas Warna Utama (biasanya putih) */
+  --prochat-primary-text: #000000;
+
+  /* Warna Latar Belakang Jendela Chat */
+  --prochat-bg-color: #2a2a2a;
+
+  /* Warna Bubble Admin/AI */
+  --prochat-bubble-admin: #444;
+
+  /* Warna Teks Utama (di atas latar belakang) */
+  --prochat-text-dark: #eeeeee;
+
+  /* Warna Teks Input */
+  --prochat-input-bg: #333;
+}
+
+/* --- (B) STYLE (Tidak perlu diubah) --- */
+
+/* Gelembung Chat (Chat Bubble) */
+#prochat-bubble {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background-color: var(--prochat-primary-color); /* (Pakai Variabel) */
+  color: var(--prochat-primary-text); /* (Pakai Variabel) */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  z-index: 9998;
+  font-size: 24px;
+}
+
+/* Jendela Chat (Chat Window) */
+#prochat-window {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 350px;
+  height: 450px;
+  background-color: var(--prochat-bg-color); /* (Pakai Variabel) */
+  border: 1px solid var(--prochat-bubble-admin); /* (Pakai Variabel) */
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  display: none; /* Sembunyi by default */
+  z-index: 9999;
+}
+
+/* Header Jendela Chat */
+.chat-header {
+  background-color: var(--prochat-primary-color); /* (Pakai Variabel) */
+  color: var(--prochat-primary-text); /* (Pakai Variabel) */
+  padding: 15px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Area Pesan */
+.chat-messages {
+  flex-grow: 1;
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Pesan (Bubble) */
+.message {
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 80%;
+  word-wrap: break-word;
+  color: var(--prochat-text-dark); /* (Pakai Variabel) */
+}
+
+.message.visitor {
+  background-color: var(--prochat-primary-color); /* (Pakai Variabel) */
+  color: var(--prochat-primary-text); /* (Pakai Variabel) */
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.message.admin {
+  background-color: var(--prochat-bubble-admin); /* (Pakai Variabel) */
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+/* Input Form */
+.chat-input {
+  border-top: 1px solid var(--prochat-bubble-admin); /* (Pakai Variabel) */
+  padding: 10px;
+}
+
+.chat-input input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--prochat-bubble-admin); /* (Pakai Variabel) */
+  background-color: var(--prochat-input-bg); /* (Pakai Variabel) */
+  color: var(--prochat-text-dark); /* (Pakai Variabel) */
+  border-radius: 4px;
+  box-sizing: border-box; 
+}
+
+/* 🆕 V22: Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  color: var(--prochat-text-dark);
+}
+
+.typing-text {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.typing-dots .dot {
+  width: 4px;
+  height: 4px;
+  background-color: var(--prochat-primary-color);
+  border-radius: 50%;
+  animation: typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}

@@ -1,0 +1,232 @@
+/* AI Suggestion Box Styling */
+/* Version: 1.0 - Professional Agent-Assist UI */
+
+.ai-suggestion-box {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  animation: slideIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-suggestion-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ffd700, #ffed4e);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header */
+.suggestion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.suggestion-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-weight: 600;
+}
+
+.suggestion-title .icon {
+  font-size: 20px;
+}
+
+.suggestion-title .text {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.category-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: white;
+  margin-left: 8px;
+}
+
+/* Confidence Badge */
+.suggestion-confidence {
+  display: flex;
+  align-items: center;
+}
+
+.confidence-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.confidence-high {
+  background: #10b981;
+  color: white;
+}
+
+.confidence-medium {
+  background: #f59e0b;
+  color: white;
+}
+
+.confidence-low {
+  background: #ef4444;
+  color: white;
+}
+
+/* Content */
+.suggestion-content {
+  background: white;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.suggestion-text {
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  word-wrap: break-word;
+}
+
+.suggestion-reasoning {
+  margin: 8px 0 0 0;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.suggestion-reasoning small {
+  font-size: 12px;
+}
+
+/* Actions */
+.suggestion-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.suggestion-actions button {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-use-suggestion {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-use-suggestion:hover {
+  background: #f3f4f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-copy-suggestion {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-copy-suggestion:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-copy-suggestion.copied {
+  background: #10b981;
+  border-color: #10b981;
+  animation: pulse 0.3s ease;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.btn-dismiss-suggestion {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 10px;
+}
+
+.btn-dismiss-suggestion:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ai-suggestion-box {
+    padding: 12px;
+  }
+  
+  .suggestion-actions {
+    flex-direction: column;
+  }
+  
+  .suggestion-actions button {
+    width: 100%;
+  }
+  
+  .btn-dismiss-suggestion {
+    min-width: 100%;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .suggestion-content {
+    background: #1f2937;
+  }
+  
+  .suggestion-text {
+    color: #f9fafb;
+  }
+  
+  .suggestion-reasoning {
+    border-top-color: #374151;
+    color: #9ca3af;
+  }
+}

@@ -9,6 +9,8 @@ process.env.MOCK_VECTOR = 'true';
 process.env.LOG_LEVEL = 'debug';
 process.env.ALLOW_LEGACY_WIDGET_KEY = 'false';
 
+const logger = require('./src/utils/logger');
+
 // Defensive: trim common env vars to avoid accidental trailing spaces from user input
 const trimIfString = (v) => (typeof v === 'string' ? v.trim() : v);
 process.env.DB_USER = trimIfString(process.env.DB_USER);
@@ -21,12 +23,12 @@ if (process.env.SERVER_URL) process.env.SERVER_URL = trimIfString(process.env.SE
 
 (async () => {
   try {
-    console.log('Starting server with env', {DB_HOST: process.env.DB_HOST, DB_USER: process.env.DB_USER});
+    logger.info('Starting server with env ' + JSON.stringify({DB_HOST: process.env.DB_HOST, DB_USER: process.env.DB_USER}));
     const { startServer } = require('./src/index');
     await startServer();
-    console.log('Server started (local wrapper)');
+    logger.info('Server started (local wrapper)');
   } catch (e) {
-    console.error('Failed to start server locally:', e && e.message);
+    logger.error('Failed to start server locally: ' + (e && (e.stack || e.message)));
     process.exit(1);
   }
 })();
