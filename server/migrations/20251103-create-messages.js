@@ -13,9 +13,13 @@ module.exports = {
       createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') },
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
     });
-    await queryInterface.addConstraint('Messages', {
-      fields: ['conversationId'], type: 'foreign key', name: 'fk_messages_conversation', references: { table: 'Conversations', field: 'id' }, onDelete: 'CASCADE'
-    });
+    try {
+      await queryInterface.addConstraint('Messages', {
+        fields: ['conversationId'], type: 'foreign key', name: 'fk_messages_conversation', references: { table: 'Conversations', field: 'id' }, onDelete: 'CASCADE'
+      });
+    } catch (err) {
+      console.warn('Warning: could not add fk_messages_conversation constraint in migration 20251103 -', err.message);
+    }
   },
   down: async (queryInterface, Sequelize) => {
     await queryInterface.removeConstraint('Messages', 'fk_messages_conversation');

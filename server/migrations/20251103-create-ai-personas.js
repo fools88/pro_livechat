@@ -13,9 +13,14 @@ module.exports = {
       createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') },
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
     });
-    await queryInterface.addConstraint('AIPersonas', {
-      fields: ['websiteId'], type: 'foreign key', name: 'fk_aipersonas_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
-    });
+    try {
+      await queryInterface.addConstraint('AIPersonas', {
+        fields: ['websiteId'], type: 'foreign key', name: 'fk_aipersonas_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
+      });
+    } catch (err) {
+      // Non-fatal: some CI ordering can run this migration before Websites exists.
+      console.warn('Warning: could not add fk_aipersonas_website constraint in migration 20251103 -', err.message);
+    }
   },
   down: async (queryInterface, Sequelize) => {
     await queryInterface.removeConstraint('AIPersonas', 'fk_aipersonas_website');

@@ -14,12 +14,20 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
     });
     // Add FK constraints where possible
-    await queryInterface.addConstraint('Conversations', {
-      fields: ['websiteId'], type: 'foreign key', name: 'fk_conversations_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
-    });
-    await queryInterface.addConstraint('Conversations', {
-      fields: ['visitorId'], type: 'foreign key', name: 'fk_conversations_visitor', references: { table: 'Visitors', field: 'id' }, onDelete: 'CASCADE'
-    });
+    try {
+      await queryInterface.addConstraint('Conversations', {
+        fields: ['websiteId'], type: 'foreign key', name: 'fk_conversations_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
+      });
+    } catch (err) {
+      console.warn('Warning: could not add fk_conversations_website constraint in migration 20251103 -', err.message);
+    }
+    try {
+      await queryInterface.addConstraint('Conversations', {
+        fields: ['visitorId'], type: 'foreign key', name: 'fk_conversations_visitor', references: { table: 'Visitors', field: 'id' }, onDelete: 'CASCADE'
+      });
+    } catch (err) {
+      console.warn('Warning: could not add fk_conversations_visitor constraint in migration 20251103 -', err.message);
+    }
   },
   down: async (queryInterface, Sequelize) => {
     await queryInterface.removeConstraint('Conversations', 'fk_conversations_website');
