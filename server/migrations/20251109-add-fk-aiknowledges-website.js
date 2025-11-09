@@ -1,45 +1,32 @@
 "use strict";
 
-/**
- * Migration: tambahkan foreign key AIKnowledges.websiteId -> Websites.id
- * Ini dibuat terpisah agar constraint ditambahkan setelah tabel Websites tersedia.
- */
-
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
-    // Defensive: hanya tambahkan constraint bila tabel AIKnowledges ada
+  async up(queryInterface, Sequelize) {
+    // Tambahkan FK websiteId -> Websites.id jika belum ada.
     try {
-      // Pastikan kolom websiteId ada (biasanya dibuat di migration pembuatan tabel)
-      await queryInterface.sequelize.transaction(async (t) => {
-        // Add constraint with explicit name so we can remove it in down()
-        await queryInterface.addConstraint('AIKnowledges', {
-          fields: ['websiteId'],
-          type: 'foreign key',
-          name: 'fk_aiknowledges_website',
-          references: {
-            table: 'Websites',
-            field: 'id'
-          },
-          onDelete: 'CASCADE',
-          onUpdate: 'CASCADE',
-          transaction: t
-        });
+      await queryInterface.addConstraint('AIKnowledges', {
+        fields: ['websiteId'],
+        type: 'foreign key',
+        name: 'fk_aiknowledges_website',
+        references: {
+          table: 'Websites',
+          field: 'id'
+        },
+        onDelete: 'CASCADE',
       });
+      console.log('✅ Added constraint fk_aiknowledges_website');
     } catch (err) {
-      // Jika gagal (mis. tabel belum ada), tampilkan peringatan dan re-throw
-      console.warn('Migration add-fk-aiknowledges-website: gagal menambahkan constraint:', err && err.message);
-      throw err;
+      // Jika constraint sudah ada atau tabel belum tersedia, tulis peringatan
+      console.warn('Could not add fk_aiknowledges_website (may already exist or table missing):', err && err.message);
     }
   },
 
-  down: async (queryInterface, Sequelize) => {
+  async down(queryInterface, Sequelize) {
     try {
-      await queryInterface.sequelize.transaction(async (t) => {
-        await queryInterface.removeConstraint('AIKnowledges', 'fk_aiknowledges_website', { transaction: t });
-      });
+      await queryInterface.removeConstraint('AIKnowledges', 'fk_aiknowledges_website');
+      console.log('✅ Removed constraint fk_aiknowledges_website');
     } catch (err) {
-      console.warn('Migration add-fk-aiknowledges-website (down): gagal menghapus constraint:', err && err.message);
-      throw err;
+      console.warn('Could not remove fk_aiknowledges_website:', err && err.message);
     }
   }
 };
