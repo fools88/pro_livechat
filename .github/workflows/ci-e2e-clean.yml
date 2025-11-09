@@ -39,8 +39,8 @@ jobs:
       MOCK_AI: 'true'
       MOCK_VECTOR: 'true'
       REQUIRE_WIDGET_TOKEN: 'true'
-  JWT_DEBUG: 'true'
-  ALLOW_LEGACY_WIDGET_KEY: 'true'
+      JWT_DEBUG: 'true'
+      ALLOW_LEGACY_WIDGET_KEY: 'true'
 
     steps:
       - name: Checkout
