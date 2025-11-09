@@ -358,7 +358,7 @@ jobs:
         run: |
           echo "Waiting for infra services to settle..."
           for i in `seq 1 30`; do
-            docker-compose -f docker-compose.ci.yml ps
+            docker compose -f docker-compose.ci.yml ps
             sleep 2
           done
 
