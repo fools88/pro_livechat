@@ -82,12 +82,14 @@ jobs:
           fi
 
       - name: Start server in background (capture logs)
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          NODE_ENV: test
         run: |
           echo "Starting server (NODE_ENV=test) and redirecting stdout/stderr to server-logs/"
           mkdir -p server-logs
-          # Ensure NODE_ENV=test so /ready treats optional services as non-blocking
-          # Also set JWT_SECRET so E2E runner (which uses the same secret) can generate valid tokens
-          JWT_SECRET=prochat-rahasia NODE_ENV=test npm --prefix server start > server-logs/server.log 2>&1 &
+          # Start server with env provided above (JWT_SECRET comes from repo secret)
+          npm --prefix server start > server-logs/server.log 2>&1 &
           echo $! > server-logs/server.pid
 
       - name: Wait for server /ready endpoint
@@ -137,13 +139,16 @@ jobs:
           curl -v --max-time 3 http://127.0.0.1:8081/health || true;
 
       - name: Run E2E Agent-Assist (capture output)
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SERVER_URL: http://localhost:8080
         run: |
           echo "Running E2E agent-assist script (server/tools/run_e2e_and_capture.js)"
           # Do not fail the step immediately; capture exit code to file for later evaluation
           set +e
           cd server
-          # Ensure E2E runner uses the same JWT secret as the server
-          JWT_SECRET=prochat-rahasia node tools/run_e2e_and_capture.js
+          # E2E runner will read JWT_SECRET and SERVER_URL from env
+          node tools/run_e2e_and_capture.js
           rc=$?
           echo $rc > tmp_e2e_exitcode
           set -e
