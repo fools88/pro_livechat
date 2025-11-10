@@ -13,6 +13,8 @@ jobs:
   analyze:
     name: Build, analyze and publish visualizer report
     runs-on: ubuntu-latest
+    env:
+      VISUALIZER_THRESHOLD_PERCENT: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,6 +46,45 @@ jobs:
             tmp/dashboard-visualizer.html
             tmp/visualizer-report.md
 
+      - id: fetch_baseline
+        name: Fetch baseline from main (if any)
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          BASELINE_FOUND=false
+          # Prefer baselines/active in main
+          if git ls-tree --name-only origin/main | grep -q "^baselines/active"; then
+            git checkout origin/main -- baselines/active || true
+            BASELINE_FOUND=true
+          else
+            # Try to find the latest baseline folder under baselines/
+            LAST=$(git ls-tree --name-only origin/main baselines || true | awk -F/ '{print $1"/"$2}' | sort -u | tail -n1 || true)
+            if [ -n "$LAST" ]; then
+              git checkout origin/main -- "$LAST" || true
+              mkdir -p baselines
+              mv "$LAST" baselines/active || true
+              BASELINE_FOUND=true
+            fi
+          fi
+          if [ "$BASELINE_FOUND" = true ] && [ -f baselines/active/dashboard-visualizer.html ]; then
+            echo "baseline_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "baseline_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run comparator and produce report
+        if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' }}
+        run: |
+          set -euo pipefail
+          node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md
+
+      - name: Upload comparator report (if any)
+        if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualizer-comparator
+          path: tmp/comparator-report.md
+
       - name: Post visualizer report as PR comment
         uses: actions/github-script@v7
         with:
@@ -55,6 +96,14 @@ jobs:
               body += '---\n' + txt;
             } catch (e) {
               body += '_Failed to read report: ' + String(e.message) + '_';
+            }
+
+            // append comparator report if available
+            try {
+              const cmp = fs.readFileSync('tmp/comparator-report.md', 'utf8');
+              body += '\n\n---\n**Comparator result**\n' + cmp;
+            } catch (e) {
+              // comparator absent or unreadable — ignore
             }
 
             const pr = context.payload.pull_request;
