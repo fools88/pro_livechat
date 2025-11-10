@@ -13,8 +13,11 @@ jobs:
   analyze:
     name: Build, analyze and publish visualizer report
     runs-on: ubuntu-latest
+<<<<<<< HEAD
     env:
       VISUALIZER_THRESHOLD_PERCENT: 10
+=======
+>>>>>>> d7ea0d185a7a3ee7f6b56512ae44b4601812f602
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,6 +49,7 @@ jobs:
             tmp/dashboard-visualizer.html
             tmp/visualizer-report.md
 
+<<<<<<< HEAD
       - name: Fetch baseline from main
         # Try to retrieve baselines/active (preferred) or the latest baseline folder from main
         run: |
@@ -92,6 +96,8 @@ jobs:
           name: visualizer-comparator
           path: tmp/comparator-report.md
 
+=======
+>>>>>>> d7ea0d185a7a3ee7f6b56512ae44b4601812f602
       - name: Post visualizer report as PR comment
         uses: actions/github-script@v7
         with:
@@ -105,6 +111,7 @@ jobs:
               body += '_Failed to read report: ' + String(e.message) + '_';
             }
 
+<<<<<<< HEAD
             // append comparator report if available
             try {
               const cmp = fs.readFileSync('tmp/comparator-report.md', 'utf8');
@@ -113,6 +120,8 @@ jobs:
               // ignore if comparator report not present
             }
 
+=======
+>>>>>>> d7ea0d185a7a3ee7f6b56512ae44b4601812f602
             const pr = context.payload.pull_request;
             if (pr) {
               await github.rest.issues.createComment({
