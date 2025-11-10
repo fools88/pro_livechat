@@ -6,6 +6,12 @@ on:
     branches: [ main, 'feat/*', '**' ]
   pull_request: {}
 
+# Allow this workflow to post comments on PRs and update pull request checks
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   analyze-dashboard:
     name: Analyze dashboard bundle (ubuntu)
