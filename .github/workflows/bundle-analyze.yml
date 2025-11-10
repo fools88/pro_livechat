@@ -13,6 +13,8 @@ jobs:
   analyze:
     name: Build, analyze and publish visualizer report
     runs-on: ubuntu-latest
+    env:
+      VISUALIZER_THRESHOLD_PERCENT: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,6 +46,39 @@ jobs:
             tmp/dashboard-visualizer.html
             tmp/visualizer-report.md
 
+      - name: Fetch baseline from main
+        # Try to retrieve baselines/active (preferred) or the latest baseline folder from main
+        run: |
+          set -e
+          git fetch origin main
+          # try baselines/active
+          if git ls-tree --name-only origin/main | grep -q "^baselines/active"; then
+            git checkout origin/main -- baselines/active
+            echo "Using baselines/active from main"
+          else
+            # try to find latest baseline folder under baselines/
+            LAST=$(git ls-tree --name-only origin/main baselines | awk -F/ '{print $1"/"$2}' | sort -u | tail -n1)
+            if [ -n "$LAST" ]; then
+              git checkout origin/main -- "$LAST"
+              mv "$LAST" baselines/active
+              echo "Checked out baseline $LAST into baselines/active"
+            else
+              echo "No baseline found in main; skipping comparator"
+              exit 0
+            fi
+          fi
+
+      - name: Run comparator and produce report
+        run: |
+          set -o pipefail
+          node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md
+
+      - name: Upload artifacts (comparator report)
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualizer-comparator
+          path: tmp/comparator-report.md
+
       - name: Post visualizer report as PR comment
         uses: actions/github-script@v7
         with:
@@ -55,6 +90,14 @@ jobs:
               body += '---\n' + txt;
             } catch (e) {
               body += '_Failed to read report: ' + String(e.message) + '_';
+            }
+
+            // append comparator report if available
+            try {
+              const cmp = fs.readFileSync('tmp/comparator-report.md', 'utf8');
+              body += '\n\n---\n**Comparator result**\n' + cmp;
+            } catch (e) {
+              // ignore if comparator report not present
             }
 
             const pr = context.payload.pull_request;
