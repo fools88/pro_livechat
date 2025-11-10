@@ -13,11 +13,8 @@ jobs:
   analyze:
     name: Build, analyze and publish visualizer report
     runs-on: ubuntu-latest
-<<<<<<< HEAD
     env:
       VISUALIZER_THRESHOLD_PERCENT: 10
-=======
->>>>>>> d7ea0d185a7a3ee7f6b56512ae44b4601812f602
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,55 +46,45 @@ jobs:
             tmp/dashboard-visualizer.html
             tmp/visualizer-report.md
 
-<<<<<<< HEAD
-      - name: Fetch baseline from main
-        # Try to retrieve baselines/active (preferred) or the latest baseline folder from main
+      - id: fetch_baseline
+        name: Fetch baseline from main (if any)
         run: |
-          set -e
+          set -euo pipefail
           git fetch origin main
-          # try baselines/active
+          BASELINE_FOUND=false
+          # Prefer baselines/active in main
           if git ls-tree --name-only origin/main | grep -q "^baselines/active"; then
-            git checkout origin/main -- baselines/active
-            echo "Using baselines/active from main"
+            git checkout origin/main -- baselines/active || true
+            BASELINE_FOUND=true
           else
-            # try to find latest baseline folder under baselines/
-            LAST=$(git ls-tree --name-only origin/main baselines | awk -F/ '{print $1"/"$2}' | sort -u | tail -n1)
+            # Try to find the latest baseline folder under baselines/
+            LAST=$(git ls-tree --name-only origin/main baselines || true | awk -F/ '{print $1"/"$2}' | sort -u | tail -n1 || true)
             if [ -n "$LAST" ]; then
-              git checkout origin/main -- "$LAST"
-              mv "$LAST" baselines/active
-              echo "Checked out baseline $LAST into baselines/active"
-            else
-              echo "No baseline found in main; skipping comparator"
-              exit 0
+              git checkout origin/main -- "$LAST" || true
+              mkdir -p baselines
+              mv "$LAST" baselines/active || true
+              BASELINE_FOUND=true
             fi
+          fi
+          if [ "$BASELINE_FOUND" = true ] && [ -f baselines/active/dashboard-visualizer.html ]; then
+            echo "baseline_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "baseline_found=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run comparator and produce report
+        if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' }}
         run: |
-          set -o pipefail
-          # If baseline exists, run comparator and capture exit code. If not, write a skip note and continue.
-          if [ -f baselines/active/dashboard-visualizer.html ]; then
-            echo "Baseline found: running comparator..."
-            if node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md; then
-              echo "Comparator succeeded";
-            else
-              echo "Comparator detected regressions or failed; preserving comparator output and exiting with non-zero";
-              cat tmp/comparator-report.md || true
-              exit 3
-            fi
-          else
-            echo "No baseline in baselines/active — skipping comparator" > tmp/comparator-report.md
-            echo "Comparator skipped because baseline missing"
-          fi
+          set -euo pipefail
+          node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md
 
-      - name: Upload artifacts (comparator report)
+      - name: Upload comparator report (if any)
+        if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: visualizer-comparator
           path: tmp/comparator-report.md
 
-=======
->>>>>>> d7ea0d185a7a3ee7f6b56512ae44b4601812f602
       - name: Post visualizer report as PR comment
         uses: actions/github-script@v7
         with:
@@ -111,17 +98,14 @@ jobs:
               body += '_Failed to read report: ' + String(e.message) + '_';
             }
 
-<<<<<<< HEAD
             // append comparator report if available
             try {
               const cmp = fs.readFileSync('tmp/comparator-report.md', 'utf8');
               body += '\n\n---\n**Comparator result**\n' + cmp;
             } catch (e) {
-              // ignore if comparator report not present
+              // comparator absent or unreadable — ignore
             }
 
-=======
->>>>>>> d7ea0d185a7a3ee7f6b56512ae44b4601812f602
             const pr = context.payload.pull_request;
             if (pr) {
               await github.rest.issues.createComment({
