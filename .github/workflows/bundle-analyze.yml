@@ -1,0 +1,68 @@
+name: Bundle analysis (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  analyze:
+    name: Build, analyze and publish visualizer report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Build dashboard with visualizer (sourcemap)
+        working-directory: dashboard
+        env:
+          ANALYZE: 'true'
+        run: npx vite build --sourcemap
+
+      - name: Run visualizer parser
+        run: |
+          node tools/parse_visualizer.js tmp/dashboard-visualizer.html 10 tmp/visualizer-report.md
+
+      - name: Upload artifacts (visualizer + report)
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualizer-artifacts
+          path: |
+            tmp/dashboard-visualizer.html
+            tmp/visualizer-report.md
+
+      - name: Post visualizer report as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '### Bundle visualizer report (automated)\n\n';
+            try {
+              const txt = fs.readFileSync('tmp/visualizer-report.md', 'utf8');
+              body += '---\n' + txt;
+            } catch (e) {
+              body += '_Failed to read report: ' + String(e.message) + '_';
+            }
+
+            const pr = context.payload.pull_request;
+            if (pr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
