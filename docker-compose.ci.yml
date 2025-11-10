@@ -7,13 +7,13 @@ services:
     environment:
       POSTGRES_USER: prochatadmin
       POSTGRES_PASSWORD: prochatpassword123
-      POSTGRES_DB: prochat_db
+      POSTGRES_DB: prochatadmin
     ports:
       - "5432:5432"
     volumes:
       - postgres-data-ci:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prochatadmin -d prochat_db -h localhost -p 5432"]
+      test: ["CMD-SHELL", "pg_isready -U prochatadmin -d prochatadmin -h localhost -p 5432"]
       interval: 5s
       timeout: 5s
       retries: 10
