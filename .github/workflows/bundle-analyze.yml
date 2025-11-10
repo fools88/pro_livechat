@@ -71,7 +71,20 @@ jobs:
       - name: Run comparator and produce report
         run: |
           set -o pipefail
-          node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md
+          # If baseline exists, run comparator and capture exit code. If not, write a skip note and continue.
+          if [ -f baselines/active/dashboard-visualizer.html ]; then
+            echo "Baseline found: running comparator..."
+            if node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md; then
+              echo "Comparator succeeded";
+            else
+              echo "Comparator detected regressions or failed; preserving comparator output and exiting with non-zero";
+              cat tmp/comparator-report.md || true
+              exit 3
+            fi
+          else
+            echo "No baseline in baselines/active — skipping comparator" > tmp/comparator-report.md
+            echo "Comparator skipped because baseline missing"
+          fi
 
       - name: Upload artifacts (comparator report)
         uses: actions/upload-artifact@v4
