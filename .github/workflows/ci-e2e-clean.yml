@@ -84,7 +84,7 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
           fi
           docker-compose --version || true
-          docker compose version || true
+          docker compose version || docker-compose --version || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -102,6 +102,7 @@ jobs:
           DB_HOST: ${{ env.DB_HOST }}
           DB_PORT: ${{ env.DB_PORT }}
         run: |
+          set -euo pipefail
           sudo apt-get update -y && sudo apt-get install -y postgresql-client
           # wait for postgres service
           for i in `seq 1 30`; do
@@ -336,7 +337,7 @@ jobs:
         run: |
           echo "Waiting for infra services to settle..."
           for i in `seq 1 30`; do
-            docker-compose -f docker-compose.ci.yml ps
+            docker compose -f docker-compose.ci.yml ps
             sleep 2
           done
 
@@ -353,6 +354,7 @@ jobs:
           DB_HOST: ${{ env.DB_HOST }}
           DB_PORT: ${{ env.DB_PORT }}
         run: |
+          set -euo pipefail
           sudo apt-get update -y && sudo apt-get install -y postgresql-client
           for i in `seq 1 30`; do
             pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
