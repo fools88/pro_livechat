@@ -1,0 +1,9 @@
+---E2E_DIRECT_START 2025-11-10T02:24:09.698Z
+2025-11-10T02:24:09.700Z [TEST] Using server base URL: http://localhost:8080
+2025-11-10T02:24:09.703Z [TEST] Admin token dibuat
+2025-11-10T02:24:09.762Z [TEST] Website dibuat: cd7126da-a82e-4df0-a23a-53e6a8ee5f27 widgetKey=5c327e87-55f0-4574-b44b-acfee1fcff40
+2025-11-10T02:24:09.787Z [TEST] Admin socket connected, id=XLbrufsbyGFe-QkuAAAB
+2025-11-10T02:24:09.792Z [TEST] Widget token diterima (will use token for socket connection)
+2025-11-10T02:24:09.795Z [TEST] Visitor connected, id=JWNbfWpcuBY5NhHHAAAD
+2025-11-10T02:24:09.813Z [TEST] Visitor connection_success, conversationId=1222e795-c42d-4bb4-89cb-2f4e82c02481
+2025-11-10T02:24:10.325Z [TEST] Admin menerima ai_suggestion: {"conversationId":"1222e795-c42d-4bb4-89cb-2f4e82c02481","suggestion":"Saran: \"Baik kak, bisa tolong diperjelas pertanyaannya? Biar saya bisa bantu lebih detail 😊\"","categoryId":null,"categoryName":null,"confidence":30}

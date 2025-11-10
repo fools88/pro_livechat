@@ -1,0 +1,3 @@
+---E2E_DIRECT_START 2025-11-09T13:18:24.691Z
+2025-11-09T13:18:24.692Z [TEST] Using server base URL: http://localhost:8080
+2025-11-09T13:18:24.695Z [TEST] Admin token dibuat

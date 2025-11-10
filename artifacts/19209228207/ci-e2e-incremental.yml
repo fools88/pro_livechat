@@ -1,0 +1,181 @@
+name: CI - E2E incremental (infra only)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  infra:
+    name: Infra (docker-compose only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure docker compose is available
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            echo "docker compose plugin available"
+          else
+            echo "docker compose plugin not available; fallback not installed in this minimal job"
+          fi
+
+      - name: Start docker compose infra
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for Postgres in container
+        run: |
+          echo "Waiting for Postgres (inside compose) to become ready..."
+          for i in $(seq 1 40); do
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochat_db >/dev/null 2>&1; then
+              echo "Postgres ready" && exit 0
+            fi
+            echo "not ready (attempt $i)";
+            sleep 2
+          done
+          echo "Postgres did not become ready" && exit 1
+
+      - name: Inspect docker compose ps
+        run: docker compose -f docker-compose.ci.yml ps
+
+      - name: Install server dependencies
+        run: |
+          echo "Installing server dependencies (npm ci in ./server)"
+          npm ci --prefix server
+
+      - name: Run DB migrations (capture logs)
+        run: |
+          echo "Running Sequelize migrations from inside ./server and saving logs to migration-logs/"
+          mkdir -p migration-logs
+          # Run migrations from server/ so local server/node_modules (sequelize) is resolvable
+          cd server
+          DB_HOST=127.0.0.1 \
+            DB_PORT=5432 \
+            DB_USER=prochatadmin \
+            DB_PASSWORD=prochatpassword123 \
+            DB_NAME=prochat_db \
+            npx --yes sequelize-cli db:migrate \
+              --config config/config.js \
+              --migrations-path migrations \
+              --env test > ../migration-logs/migration.log 2>&1 || echo $? > ../migration-logs/exitcode
+
+          # Ensure there is an exitcode file (0 if success)
+          if [ ! -f ../migration-logs/exitcode ]; then
+            echo 0 > ../migration-logs/exitcode
+          fi
+
+      - name: Upload migration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-logs
+          path: migration-logs
+
+      - name: Fail job if migrations failed
+        if: always()
+        run: |
+          rc=$(cat migration-logs/exitcode || echo 0)
+          if [ "$rc" -ne 0 ]; then
+            echo "Migrations failed with exit code $rc; see migration-logs artifact"
+            exit $rc
+          fi
+
+      - name: Start server in background (capture logs)
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          NODE_ENV: test
+        run: |
+          echo "Starting server (NODE_ENV=test) and redirecting stdout/stderr to server-logs/"
+          mkdir -p server-logs
+          # Start server with env provided above (JWT_SECRET comes from repo secret)
+          npm --prefix server start > server-logs/server.log 2>&1 &
+          echo $! > server-logs/server.pid
+
+      - name: Wait for server /ready endpoint
+        run: |
+          echo "Polling http://127.0.0.1:8080/ready for readiness (up to 60 tries)"
+          mkdir -p tmp
+          success=1
+          for i in $(seq 1 60); do
+            http_status=$(curl -s -o tmp/ready_resp.txt -w "%{http_code}" http://127.0.0.1:8080/ready || true)
+            echo "attempt $i -> status=$http_status"
+            if [ "$http_status" = "200" ]; then
+              echo "Server ready"
+              success=0
+              break
+            fi
+            sleep 2
+          done
+          echo $success > tmp/ready_exitcode
+          if [ "$success" -ne 0 ]; then
+            echo "Server did not become ready in time; check server-logs/server.log and tmp/ready_resp.txt"
+          fi
+
+      - name: Upload server logs and tmp artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            server-logs
+            tmp
+
+      - name: Fail if server not ready
+        if: always()
+        run: |
+          rc=$(cat tmp/ready_exitcode || echo 1)
+          if [ "$rc" -ne 0 ]; then
+            echo "Server readiness failed (exit $rc); check artifacts server-logs and tmp"
+            exit $rc
+          fi
+
+      - name: "Diagnostic: check server ports 8080 and 8081"
+        if: always()
+        run: |
+          echo "Diagnostic: curl http://127.0.0.1:8080/health";
+          curl -v --max-time 3 http://127.0.0.1:8080/health || true;
+          echo "Diagnostic: curl http://127.0.0.1:8081/health";
+          curl -v --max-time 3 http://127.0.0.1:8081/health || true;
+
+      - name: Run E2E Agent-Assist (capture output)
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SERVER_URL: http://localhost:8080
+        run: |
+          echo "Running E2E agent-assist script (server/tools/run_e2e_and_capture.js)"
+          # Do not fail the step immediately; capture exit code to file for later evaluation
+          set +e
+          cd server
+          # E2E runner will read JWT_SECRET and SERVER_URL from env
+          node tools/run_e2e_and_capture.js
+          rc=$?
+          echo $rc > tmp_e2e_exitcode
+          set -e
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-e2e-output
+          path: |
+            server/tmp_e2e_output.txt
+            server/tmp_e2e_direct.txt
+            server/tmp_e2e_exitcode
+
+      - name: Fail if E2E failed
+        if: always()
+        run: |
+          rc=$(cat server/tmp_e2e_exitcode || echo 1)
+          if [ "$rc" -ne 0 ]; then
+            echo "E2E script failed (exit $rc). See server-e2e-output artifact for details."
+            exit $rc
+          fi
+
+      - name: Upload infra status artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-status
+          path: |
+            .github/workflows/ci-e2e-incremental.yml

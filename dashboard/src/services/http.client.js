@@ -4,10 +4,13 @@ let _instancePromise = null;
 const init = () => {
   if (!_instancePromise) {
     _instancePromise = (async () => {
-      const axiosModule = await import('axios');
-      const axios = axiosModule.default || axiosModule;
-      const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8081';
-      const API_URL = `${BASE.replace(/\/$/, '')}/api`;
+  const axiosModule = await import('axios');
+  const axios = axiosModule.default || axiosModule;
+  // SSR/Node-safe env detection
+  let baseEnv;
+  try { baseEnv = import.meta.env && import.meta.env.VITE_API_URL; } catch (e) { baseEnv = undefined; }
+  const BASE = baseEnv || process.env.VITE_API_URL || 'http://localhost:8081';
+  const API_URL = `${BASE.replace(/\/$/, '')}/api`;
       const inst = axios.create({ baseURL: API_URL });
       inst.interceptors.request.use(
         (config) => {

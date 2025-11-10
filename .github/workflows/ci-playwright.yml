@@ -1,0 +1,55 @@
+name: CI - Dashboard tests
+
+on:
+  pull_request:
+    paths:
+      - 'dashboard/**'
+  push:
+    branches: [ main ]
+  # allow manual runs so reviewers/devs can trigger full E2E when needed
+  workflow_dispatch: {}
+
+jobs:
+  dashboard-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dashboard deps
+        working-directory: ./dashboard
+        run: |
+          npm ci
+
+      - name: Build dashboard (production)
+        working-directory: ./dashboard
+        run: |
+          npm run build
+
+      - name: Install Playwright browsers
+        working-directory: ./dashboard
+        run: |
+          npx playwright install --with-deps
+
+      - name: Run unit tests
+        working-directory: ./dashboard
+        run: |
+          npm run test:unit
+
+      - name: Run Playwright tests
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        working-directory: ./dashboard
+        run: |
+          npx playwright test --config=playwright.config.mjs --reporter=list
+
+      - name: Upload Playwright report (if generated)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: dashboard/playwright-report || dashboard/test-results || ''

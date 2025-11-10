@@ -28,3 +28,5 @@ logs/
 .DS_Store
 npm-debug.log
 yarn-error.log
+# Ignore archived worktrees which are not part of active source and can cause false-positives
+worktree-main.ARCHIVE/

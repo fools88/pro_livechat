@@ -1,0 +1,17 @@
+---RUN_E2E_AND_CAPTURE START 2025-11-09T13:49:59.446Z
+[2025-11-09T13:49:59.566Z] [INFO] [TEST] Using server base URL: http://localhost:8080
+[2025-11-09T13:49:59.570Z] [INFO] [TEST] Admin token dibuat
+[2025-11-09T13:49:59.571Z] [INFO] [TEST][fetch] Attempt 1 -> POST http://localhost:8080/api/websites/
+[2025-11-09T13:49:59.648Z] [INFO] [TEST] Website dibuat: cb685148-2020-48e7-adaf-40e06c3d280d widgetKey=647e6baf-d1f0-4c32-8469-9655c153b452
+[2025-11-09T13:49:59.657Z] [INFO] [TEST][token] Attempt 1 -> POST http://localhost:8080/api/widget/token using origin=https://e2e.test
+[2025-11-09T13:49:59.657Z] [INFO] [TEST][fetch] Attempt 1 -> POST http://localhost:8080/api/widget/token
+[2025-11-09T13:49:59.677Z] [INFO] [TEST] Admin socket connected, id=EwGZLB2Ua-r2XHdTAAAB
+[2025-11-09T13:49:59.683Z] [INFO] [TEST] Widget token diterima (will use token for socket connection)
+[2025-11-09T13:49:59.687Z] [INFO] [TEST] Visitor connected, id=01tvgvlYzKwAiMTnAAAD
+[2025-11-09T13:49:59.703Z] [INFO] [TEST] Visitor connection_success, conversationId=71d44ed4-6f1c-4be4-8118-914063adfa12
+[2025-11-09T13:49:59.703Z] [INFO] [TEST] Admin join_room ->71d44ed4-6f1c-4be4-8118-914063adfa12
+[2025-11-09T13:49:59.804Z] [INFO] [TEST] Admin toggle AI -> OFF for convo 71d44ed4-6f1c-4be4-8118-914063adfa12
+[2025-11-09T13:50:00.205Z] [INFO] [TEST] Visitor mengirim pesan yang memicu Agent-Assist
+[2025-11-09T13:50:00.215Z] [INFO] [TEST] Admin menerima ai_suggestion: {"conversationId":"71d44ed4-6f1c-4be4-8118-914063adfa12","suggestion":"Saran: \"Baik kak, bisa tolong diperjelas pertanyaannya? Biar saya bisa bantu lebih detail 😊\"","categoryId":null,"categoryName":null,"confidence":30}
+
+---PROCESS-END code=0 signal=null timestamp=2025-11-09T13:50:00.222Z

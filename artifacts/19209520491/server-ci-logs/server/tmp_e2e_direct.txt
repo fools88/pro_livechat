@@ -1,0 +1,9 @@
+---E2E_DIRECT_START 2025-11-09T14:00:28.633Z
+2025-11-09T14:00:28.635Z [TEST] Using server base URL: http://127.0.0.1:8081
+2025-11-09T14:00:28.637Z [TEST] Admin token dibuat
+2025-11-09T14:00:28.692Z [TEST] Menggunakan website yang sudah ada: 4e209c4c-273e-47e5-881d-3a9ea35aaf13 widgetKey=5cacbd14-8ed8-4e9a-9126-13b0ab54cb79
+2025-11-09T14:00:28.714Z [TEST] Widget token diterima (will use token for socket connection)
+2025-11-09T14:00:28.716Z [TEST] Admin socket connected, id=rynSqVHcfdUovH4fAAAB
+2025-11-09T14:00:28.719Z [TEST] Visitor connected, id=wo9_TzPds7RwAm5jAAAD
+2025-11-09T14:00:28.734Z [TEST] Visitor connection_success, conversationId=9da53957-062a-49d8-9352-b8cfcf6bdfcc
+2025-11-09T14:00:29.247Z [TEST] Admin menerima ai_suggestion: {"conversationId":"9da53957-062a-49d8-9352-b8cfcf6bdfcc","suggestion":"Saran: \"Baik kak, bisa tolong diperjelas pertanyaannya? Biar saya bisa bantu lebih detail 😊\"","categoryId":null,"categoryName":null,"confidence":30}

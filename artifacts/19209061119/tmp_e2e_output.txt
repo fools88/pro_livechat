@@ -1,0 +1,9 @@
+---RUN_E2E_AND_CAPTURE START 2025-11-09T13:18:24.581Z
+[2025-11-09T13:18:24.691Z] [INFO] [TEST] Using server base URL: http://localhost:8080
+[2025-11-09T13:18:24.695Z] [INFO] [TEST] Admin token dibuat
+[2025-11-09T13:18:24.695Z] [INFO] [TEST][fetch] Attempt 1 -> POST http://localhost:8080/api/websites/
+[2025-11-09T13:18:24.751Z] [WARN] [TEST] Gagal membuat website langsung, trying fallback GET websites, response: 401 {"message":"Akses ditolak: Token tidak valid!"}
+[2025-11-09T13:18:24.751Z] [INFO] [TEST][fetch] Attempt 1 -> GET http://localhost:8080/api/websites/
+[2025-11-09T13:18:24.756Z] [ERROR] [TEST] Gagal mengambil daftar website: 401 {"message":"Akses ditolak: Token tidak valid!"}
+
+---PROCESS-END code=1 signal=null timestamp=2025-11-09T13:18:24.820Z
