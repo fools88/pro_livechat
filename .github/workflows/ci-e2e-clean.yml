@@ -312,8 +312,11 @@ jobs:
           echo "Bringing down any previous docker compose infra and removing volumes (CI fresh start)"
           docker compose -f docker-compose.ci.yml down --volumes || true
 
-      - name: Start infra (Docker Compose)
+      - name: Prepare host output dir and start infra (Docker Compose)
         run: |
+          echo "Ensure host directory for CI output exists before starting containers"
+          mkdir -p server/ci/out || true
+          ls -la server/ci || true
           docker compose -f docker-compose.ci.yml up -d
 
       - name: Immediate infra diagnostics (early)
