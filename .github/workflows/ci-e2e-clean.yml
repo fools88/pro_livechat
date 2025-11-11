@@ -338,7 +338,26 @@ jobs:
           mkdir -p server/ci/out || true
           chmod -R 0777 server/ci/out || true
           ls -la server/ci || true
+          # Tear down previous infra and volumes to force init scripts to run on fresh DB
+          docker compose -f docker-compose.ci.yml down -v --remove-orphans || true
+          # Start infra
           docker compose -f docker-compose.ci.yml up -d
+          sleep 2
+          # Post-up diagnostics written to server/ci/out so early artifact upload can pick them up
+          docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-all.txt || true
+          docker compose -f docker-compose.ci.yml ps > server/ci/out/compose-ps.txt || true
+          docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-early.log 2>&1 || true
+          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-early.log 2>&1 || true
+          # list init scripts inside container and dump ci-initdb.sh if present
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d' > server/ci/out/initd-list.txt 2>&1; then :; else echo "initd list failed" >> server/ci/out/initd-list.txt; fi
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' > server/ci/out/ci-initdb-sh.txt 2>&1 || true
+          # attempt to read marker written by init script
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then cat /ci-out/ci-initdb-done; else echo "NO_MARKER"; fi' > server/ci/out/ci-initdb-done || true
+          # psql listing (force TCP)
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\l"' > server/ci/out/psql-list-early.txt 2>&1 || true
+          # inspect db container if present
+          CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+          if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect.json 2>&1 || true; fi
 
       - name: Upload early infra diagnostics artifact
         if: failure()
