@@ -9,7 +9,7 @@ function fail(msg, code = 2) {
 }
 
 // Minimal argument parsing to avoid external deps. Usage:
-// --baseline <dir> --current <file> --threshold <percent>
+// --baseline <dir> --current <file> --threshold <percent> [--out <file>]
 function parseArgs() {
   const out = { _: [] };
   const args = process.argv.slice(2);
@@ -29,23 +29,51 @@ function parseArgs() {
   }
   return out;
 }
+
 const argv = parseArgs();
 const baselineDir = argv['baseline'] || argv._[0];
-const currentHtml = argv['current'] || argv._[1] || path.resolve('tmp', 'artifacts-19227603274', 'dashboard-visualizer.html');
+const currentHtml = argv['current'] || argv._[1] || path.resolve('tmp', 'dashboard-visualizer.html');
 const thresholdPercent = parseFloat(process.env.VISUALIZER_THRESHOLD_PERCENT || argv['threshold'] || '10');
+const outFile = argv['out'] || process.env.VISUALIZER_OUT_FILE || null;
 
 if (!baselineDir) fail('Missing baseline directory. Pass --baseline baselines/<name> or as first arg');
 const baselineHtml = path.resolve(baselineDir, 'dashboard-visualizer.html');
 if (!fs.existsSync(baselineHtml)) fail('Baseline html not found at ' + baselineHtml);
 if (!fs.existsSync(currentHtml)) fail('Current visualizer html not found at ' + currentHtml);
 
+function extractDataObjectText(html) {
+  // find 'const data =' and then extract a balanced-brace JSON object following it
+  const idx = html.indexOf('const data =');
+  if (idx === -1) return null;
+  const start = html.indexOf('{', idx);
+  if (start === -1) return null;
+  let i = start;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (; i < html.length; i++) {
+    const ch = html[i];
+    if (inString) {
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = false; continue; }
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{') depth++; else if (ch === '}') {
+      depth--;
+      if (depth === 0) { return html.slice(start, i+1); }
+    }
+  }
+  return null;
+}
+
 function extractTotalsFromHtml(input) {
   const html = fs.readFileSync(input, 'utf8');
-  const re = /const data = (\{[\s\S]*?\});\n\n\s*const run/;
-  const m = html.match(re);
-  if (!m) fail('Failed to extract data object from ' + input);
+  const jsonText = extractDataObjectText(html);
+  if (!jsonText) fail('Failed to extract data object from ' + input);
   let data;
-  try { data = JSON.parse(m[1]); } catch (err) { fail('JSON parse error: ' + err.message); }
+  try { data = JSON.parse(jsonText); } catch (err) { fail('JSON parse error: ' + err.message); }
   const nodeParts = data.nodeParts || {};
   const nodeMetas = data.nodeMetas || {};
   const partGzip = {};
@@ -94,7 +122,17 @@ for (const asset of Array.from(vendors).sort()) {
 }
 
 const out = report.join('\n');
-console.log(out);
+if (outFile) {
+  try {
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
+    fs.writeFileSync(outFile, out + '\n', 'utf8');
+  } catch (err) {
+    console.error('Failed to write out file', outFile, err && err.message);
+  }
+} else {
+  console.log(out);
+}
+
 if (failed) {
   console.error('\nOne or more vendor assets exceed the threshold.');
   process.exit(3);

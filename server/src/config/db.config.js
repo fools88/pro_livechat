@@ -26,14 +26,27 @@ const initDb = (opts = {}) => {
 };
 
 // connectDb tetap ada untuk kompatibilitas: pastikan init dipanggil sebelumnya
-const connectDb = async () => {
-  if (!sequelize) initDb();
-  try {
-    await sequelize.authenticate();
-    logger.info(`[Database] Koneksi ke PostgreSQL (${process.env.DB_NAME}) BERHASIL.`);
-  } catch (error) {
-    logger.error({ msg: '[Database] GAGAL terhubung ke PostgreSQL', error: error && (error.stack || error.message || error) });
-    process.exit(1);
+const connectDb = async (opts = {}) => {
+  if (!sequelize) initDb(opts);
+  const maxRetries = parseInt(process.env.DB_CONNECT_RETRIES || '60', 10); // default ~60 attempts
+  const retryDelay = parseInt(process.env.DB_CONNECT_RETRY_DELAY_SEC || '2', 10) * 1000; // ms
+  let attempt = 0;
+  while (true) {
+    try {
+      await sequelize.authenticate();
+      logger.info(`[Database] Koneksi ke PostgreSQL (${process.env.DB_NAME}) BERHASIL.`);
+      return;
+    } catch (error) {
+      attempt += 1;
+      logger.warn({ msg: `[Database] Koneksi gagal (attempt ${attempt}/${maxRetries})`, error: error && (error.stack || error.message || error) });
+      if (attempt >= maxRetries) {
+        logger.error({ msg: '[Database] GAGAL terhubung ke PostgreSQL setelah retries', error: error && (error.stack || error.message || error) });
+        // throw so caller can decide to exit and capture stack
+        throw error;
+      }
+      // wait before next attempt
+      await new Promise((res) => setTimeout(res, retryDelay));
+    }
   }
 };
 

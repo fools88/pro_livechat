@@ -72,11 +72,17 @@ jobs:
             echo "baseline_found=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run comparator and produce report
+      - id: run_comparator
+        name: Run comparator and produce report
         if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' }}
         run: |
-          set -euo pipefail
-          node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} > tmp/comparator-report.md
+          set -eu
+          # run comparator but don't let the job stop on a non-zero comparator exit so we can upload the report
+          set +e
+          node tools/compare_visualizer.js --baseline baselines/active --current tmp/dashboard-visualizer.html --threshold ${{ env.VISUALIZER_THRESHOLD_PERCENT }} --out tmp/comparator-report.md
+          rc=$?
+          set -e
+          echo "comparator_exit=$rc" >> "$GITHUB_OUTPUT"
 
       - name: Upload comparator report (if any)
         if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' }}
@@ -84,6 +90,12 @@ jobs:
         with:
           name: visualizer-comparator
           path: tmp/comparator-report.md
+
+      - name: Fail job if comparator detected regression
+        if: ${{ steps.fetch_baseline.outputs.baseline_found == 'true' && steps.run_comparator.outputs.comparator_exit != '0' }}
+        run: |
+          echo "Comparator signaled regression (exit code: ${{ steps.run_comparator.outputs.comparator_exit }})"
+          exit 3
 
       - name: Post visualizer report as PR comment
         uses: actions/github-script@v7
