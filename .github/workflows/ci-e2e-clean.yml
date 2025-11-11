@@ -316,6 +316,13 @@ jobs:
         run: |
           docker compose -f docker-compose.ci.yml up -d
 
+      - name: Capture Postgres logs (early)
+        run: |
+          echo "Capturing docker compose logs for db to infra-db.log and infra-all.log"
+          docker compose -f docker-compose.ci.yml logs --no-color db > infra-db.log || true
+          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
+          docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
+
       - name: Ensure DBs inside Postgres container
         run: |
           echo "Waiting for Postgres container to be ready (pg_isready)..."
