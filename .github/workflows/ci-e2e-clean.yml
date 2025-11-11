@@ -413,6 +413,17 @@ jobs:
             exit 1
           fi
 
+      - name: Diagnostic: inspect init scripts, DB list and marker inside Postgres container
+        run: |
+          echo "--- ls /docker-entrypoint-initdb.d ---"
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d || true' || true
+          echo "--- cat /docker-entrypoint-initdb.d/ci-initdb.sh (if present) ---"
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' || true
+          echo "--- psql -l (DB list) ---"
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' || true
+          echo "--- marker /ci-out/ci-initdb-done (if present) ---"
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then echo "MARKER:"; cat /ci-out/ci-initdb-done; else echo "MARKER NOT FOUND"; fi' || true
+
       - name: Start server (mocked) in background
         working-directory: server
         run: |
