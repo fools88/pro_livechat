@@ -467,7 +467,7 @@ jobs:
       - name: 'Defensive: wait for prochat_db inside Postgres container'
         run: |
           echo "Checking prochat_db exists inside Postgres container..."
-          for i in `seq 1 30`; do
+          for i in `seq 1 150`; do
             if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1' >/dev/null 2>&1; then
               echo "prochat_db found inside container"
               break
