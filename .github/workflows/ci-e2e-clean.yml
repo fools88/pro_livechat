@@ -316,6 +316,43 @@ jobs:
         run: |
           docker compose -f docker-compose.ci.yml up -d
 
+      - name: Immediate infra diagnostics (early)
+        run: |
+          echo "Creating server/ci/out and capturing immediate infra state"
+          mkdir -p server/ci/out || true
+          # docker compose ps (full) and ps (short)
+          docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-all.txt || true
+          docker compose -f docker-compose.ci.yml ps > server/ci/out/compose-ps.txt || true
+
+          # capture logs quickly so we have early evidence
+          docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-early.log 2>&1 || true
+          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-early.log 2>&1 || true
+
+          # save ps to infra-ps.txt too for backwards compatibility
+          docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
+
+          # inspect db container init dir and ci-initdb script (if mounted)
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d || true' > server/ci/out/initd-list.txt 2>&1 || true
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,400p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' > server/ci/out/ci-initdb-sh.txt 2>&1 || true
+
+          # docker inspect the db container (if available)
+          CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+          if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect.json 2>&1 || true; else echo "no db container id" > server/ci/out/db-inspect.json; fi
+
+      - name: Upload early infra diagnostics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-diag-early
+          path: |
+            server/ci/out/compose-ps-all.txt
+            server/ci/out/compose-ps.txt
+            server/ci/out/infra-db-early.log
+            server/ci/out/infra-all-early.log
+            server/ci/out/initd-list.txt
+            server/ci/out/ci-initdb-sh.txt
+            server/ci/out/db-inspect.json
+
       - name: Capture Postgres logs (early)
         run: |
           echo "Capturing docker compose logs for db to infra-db.log and infra-all.log"
