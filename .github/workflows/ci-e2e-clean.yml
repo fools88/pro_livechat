@@ -386,13 +386,15 @@ jobs:
           echo "Creating required databases inside Postgres container (if missing)"
           docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc '
             set -e
-            psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin"
-            psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db"
+            # force TCP (avoid Unix socket path issues inside container)
+            psql -h 127.0.0.1 -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochatadmin"
+            psql -h 127.0.0.1 -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochat_db"
             echo "DBs ensured"
           '
 
           echo "Verifying DB list"
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' > server/ci/out/psql-list.txt 2>&1 || true
+          # use TCP host so psql doesn't try a Unix socket which may not be present
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list.txt 2>&1 || true
 
           echo "Capturing docker compose logs to infra-all.log and infra-db.log"
           docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
