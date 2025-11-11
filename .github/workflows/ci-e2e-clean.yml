@@ -344,7 +344,7 @@ jobs:
           if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect.json 2>&1 || true; else echo "no db container id" > server/ci/out/db-inspect.json; fi
 
       - name: Upload early infra diagnostics artifact
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: infra-diag-early
@@ -410,7 +410,7 @@ jobs:
           docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
 
       - name: Upload infra wait diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: infra-diag-wait
@@ -506,7 +506,7 @@ jobs:
           echo "=== end diagnostic ===" | tee -a $OUTFILE
 
       - name: Upload diagnostic artifact (diag-init)
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: diag-init
