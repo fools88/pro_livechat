@@ -362,14 +362,31 @@ jobs:
 
       - name: Ensure DBs inside Postgres container
         run: |
-          echo "Waiting for Postgres container to be ready (pg_isready)..."
-          for i in `seq 1 60`; do
-            # check postgres inside container (do NOT require specific DB to exist)
+          echo "Robust wait for Postgres to accept connections (max 120s)"
+          MAX_TRIES=120
+          TRY=0
+          mkdir -p server/ci/out || true
+          while true; do
+            TRY=$((TRY+1))
+            echo "Attempt $TRY: checking pg_isready inside container..."
+            # Use exec; if the service isn't available yet this will fail and we keep retrying
             if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin >/dev/null 2>&1; then
-              echo "Postgres responding inside container" && break
+              echo "Postgres responding inside container after $TRY attempts"
+              echo "ready: $TRY" > server/ci/out/wait-db.txt || true
+              break
             fi
-            echo "Postgres not ready yet (attempt $i)"
-            sleep 2
+            if [ $TRY -ge $MAX_TRIES ]; then
+              echo "Postgres did not become ready after ${MAX_TRIES}s" | tee server/ci/out/wait-db.txt
+              echo "Collecting final logs and ps output for debugging"
+              docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-final.log 2>&1 || true
+              docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-final.log 2>&1 || true
+              docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-final.txt 2>&1 || true
+              # also dump db inspect if possible
+              CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+              if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect-final.json 2>&1 || true; fi
+              exit 1
+            fi
+            sleep 1
           done
 
           echo "Creating required databases inside Postgres container (if missing)"
@@ -381,12 +398,25 @@ jobs:
           '
 
           echo "Verifying DB list"
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' || true
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' > server/ci/out/psql-list.txt 2>&1 || true
 
           echo "Capturing docker compose logs to infra-all.log and infra-db.log"
           docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
           docker compose -f docker-compose.ci.yml logs --no-color db > infra-db.log || true
           docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
+
+      - name: Upload infra wait diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-diag-wait
+          path: |
+            server/ci/out/wait-db.txt
+            server/ci/out/psql-list.txt
+            server/ci/out/infra-db-final.log
+            server/ci/out/infra-all-final.log
+            server/ci/out/compose-ps-final.txt
+            server/ci/out/db-inspect-final.json
 
       - name: Wait for services (quick loop)
         run: |
