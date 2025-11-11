@@ -312,41 +312,26 @@ jobs:
 
       - name: Ensure DBs inside Postgres container
         run: |
-          echo "Waiting for Postgres container to be ready..."
-          for i in `seq 1 40`; do
-            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochatadmin >/dev/null 2>&1; then
-              echo "Postgres ready inside container" && break
+          echo "Waiting for Postgres container to be ready (pg_isready)..."
+          for i in `seq 1 60`; do
+            # check postgres inside container (do NOT require specific DB to exist)
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin >/dev/null 2>&1; then
+              echo "Postgres responding inside container" && break
             fi
             echo "Postgres not ready yet (attempt $i)"
             sleep 2
           done
 
-          # Create target databases if missing inside the Postgres container.
-          # Use docker compose exec and pass PGPASSWORD via -e so we do not rely on host port mapping.
-          for i in `seq 1 40`; do
-            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochatadmin >/dev/null 2>&1; then
-              echo "Postgres ready inside container" && break
-            fi
-            echo "Postgres not ready yet (attempt $i)"
-            sleep 2
-          done
+          echo "Creating required databases inside Postgres container (if missing)"
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc '
+            set -e
+            psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin"
+            psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db"
+            echo "DBs ensured"
+          '
 
-          # Create databases inside the container using the workflow's DB_PASSWORD
-          echo "== DB create: prochatadmin (inside container) =="
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin"'
-          rc=$?
-          echo "create prochatadmin rc=$rc"
-          echo "== DB list after create (prochatadmin) =="
+          echo "Verifying DB list"
           docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' || true
-          if [ $rc -ne 0 ]; then echo "WARNING: create prochatadmin returned $rc"; fi
-
-          echo "== DB create: prochat_db (inside container) =="
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db"'
-          rc=$?
-          echo "create prochat_db rc=$rc"
-          echo "== DB list after create (prochat_db) =="
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' || true
-          if [ $rc -ne 0 ]; then echo "WARNING: create prochat_db returned $rc"; fi
 
           echo "Capturing docker compose logs to infra-all.log and infra-db.log"
           docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
