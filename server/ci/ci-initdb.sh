@@ -7,12 +7,11 @@ set -e
 echo "[ci-initdb] Running CI init script: ensure databases prochatadmin and prochat_db"
 
 # psql will be available and the entrypoint runs this as the postgres user
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-SQL
-  CREATE DATABASE IF NOT EXISTS prochatadmin;
-  CREATE DATABASE IF NOT EXISTS prochat_db;
-SQL
-
-echo "[ci-initdb] Databases ensured"
+# Postgres doesn't support CREATE DATABASE IF NOT EXISTS, so check and create.
+echo "[ci-initdb] Ensuring databases exist using safe checks"
+psql --username "$POSTGRES_USER" -t -c "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || psql --username "$POSTGRES_USER" -c "CREATE DATABASE prochatadmin"
+psql --username "$POSTGRES_USER" -t -c "SELECT 1 FROM pg_database WHERE datname='prochat_db'" | grep -q 1 || psql --username "$POSTGRES_USER" -c "CREATE DATABASE prochat_db"
+echo "[ci-initdb] Databases ensured (checks complete)"
 
 # Write a marker file to a mounted path so the workflow can detect the init script ran.
 # The workflow mounts ./server/ci/out on the host to /ci-out inside the container.
