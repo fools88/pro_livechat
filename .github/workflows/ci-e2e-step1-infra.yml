@@ -40,7 +40,7 @@ jobs:
         run: docker compose -f docker-compose.ci.yml ps
 
       - name: Upload infra status artifact
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: infra-status

@@ -132,7 +132,7 @@ jobs:
           fi
 
       - name: Upload logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-ci-logs
@@ -231,6 +231,7 @@ jobs:
         run: node tools/run_e2e_and_capture.js || true
 
       - name: Upload E2E artifact
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-e2e-output
@@ -335,7 +336,7 @@ jobs:
           echo "==== END DIAGNOSTICS ===="
 
       - name: Upload logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-logs
