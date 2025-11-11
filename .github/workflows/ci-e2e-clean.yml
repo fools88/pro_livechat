@@ -487,21 +487,44 @@ jobs:
       - name: "Diagnostic: inspect init scripts, DB list and marker inside Postgres container"
         run: |
           # Ensure host-side output dir exists so artifacts can be uploaded
-          mkdir -p server/ci/out
+          mkdir -p server/ci/out || true
           OUTFILE=server/ci/out/diag-init.txt
           echo "=== diagnostic run: $(date -u) ===" > $OUTFILE
 
           echo "--- ls /docker-entrypoint-initdb.d ---" | tee -a $OUTFILE
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d || true' >> $OUTFILE 2>&1 || true
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d' >> $OUTFILE 2>&1; then
+            echo "initd listed OK" >> $OUTFILE
+          else
+            echo "initd list failed; falling back to docker logs & inspect" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+            docker compose -f docker-compose.ci.yml ps --all >> $OUTFILE 2>&1 || true
+            CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+            if [ -n "$CID" ]; then docker inspect $CID >> $OUTFILE 2>&1 || true; fi
+          fi
 
           echo "--- cat /docker-entrypoint-initdb.d/ci-initdb.sh (if present) ---" | tee -a $OUTFILE
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' >> $OUTFILE 2>&1 || true
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' >> $OUTFILE 2>&1; then
+            echo "ci-initdb.sh read OK" >> $OUTFILE
+          else
+            echo "ci-initdb.sh read failed; appending db logs" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+          fi
 
           echo "--- psql -l (DB list) ---" | tee -a $OUTFILE
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' >> $OUTFILE 2>&1 || true
+          if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' >> $OUTFILE 2>&1; then
+            echo "psql -l OK" >> $OUTFILE
+          else
+            echo "psql -l failed; appending last 500 db logs" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+          fi
 
           echo "--- marker /ci-out/ci-initdb-done (if present) ---" | tee -a $OUTFILE
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then echo "MARKER:"; cat /ci-out/ci-initdb-done; else echo "MARKER NOT FOUND"; fi' >> $OUTFILE 2>&1 || true
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then echo "MARKER:"; cat /ci-out/ci-initdb-done; else echo "MARKER NOT FOUND"; fi' >> $OUTFILE 2>&1; then
+            echo "marker checked" >> $OUTFILE
+          else
+            echo "marker check failed; including db logs" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+          fi
 
           echo "=== end diagnostic ===" | tee -a $OUTFILE
 
