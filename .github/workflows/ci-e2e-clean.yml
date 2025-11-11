@@ -321,17 +321,19 @@ jobs:
             sleep 2
           done
 
-          # Create target databases if missing. Use DB credentials from workflow env.
-          # Install psql client on the runner and connect to Postgres exposed on localhost
-          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          # Create target databases if missing inside the Postgres container.
+          # Use docker compose exec and pass PGPASSWORD via -e so we do not rely on host port mapping.
           for i in `seq 1 40`; do
-            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin -d prochatadmin >/dev/null 2>&1 && echo "Postgres ready on host" && break
+            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochatadmin >/dev/null 2>&1; then
+              echo "Postgres ready inside container" && break
+            fi
             echo "Postgres not ready yet (attempt $i)"
             sleep 2
           done
-          export PGPASSWORD="${DB_PASSWORD}"
-          psql -h 127.0.0.1 -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = 'prochatadmin'" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochatadmin"
-          psql -h 127.0.0.1 -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = 'prochat_db'" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochat_db"
+
+          # Create databases inside the container using the workflow's DB_PASSWORD
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc "psql -U prochatadmin -tc \"SELECT 1 FROM pg_database WHERE datname = 'prochatadmin'\" | grep -q 1 || psql -U prochatadmin -c \"CREATE DATABASE prochatadmin\"" || true
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc "psql -U prochatadmin -tc \"SELECT 1 FROM pg_database WHERE datname = 'prochat_db'\" | grep -q 1 || psql -U prochatadmin -c \"CREATE DATABASE prochat_db\"" || true
 
           echo "Capturing docker compose logs to infra-all.log and infra-db.log"
           docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
