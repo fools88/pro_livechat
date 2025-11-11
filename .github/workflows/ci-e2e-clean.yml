@@ -311,6 +311,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+  init-script-smoke:
+    name: Init script smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run init script smoke test
+        run: |
+          chmod +x server/ci/ci-initdb.sh || true
+          mkdir -p server/ci/out
+          chmod -R 0777 server/ci/out || true
+          bash server/tools/test_ci_initdb.sh
+
       - name: Ensure no leftover docker-compose infra (clean volumes)
         run: |
           echo "Bringing down any previous docker compose infra and removing volumes (CI fresh start)"
