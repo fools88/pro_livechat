@@ -306,6 +306,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure no leftover docker-compose infra (clean volumes)
+        run: |
+          echo "Bringing down any previous docker compose infra and removing volumes (CI fresh start)"
+          docker compose -f docker-compose.ci.yml down --volumes || true
+
       - name: Start infra (Docker Compose)
         run: |
           docker compose -f docker-compose.ci.yml up -d
