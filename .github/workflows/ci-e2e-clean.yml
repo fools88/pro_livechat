@@ -124,6 +124,8 @@ jobs:
           DB_HOST: ${{ env.DB_HOST }}
           DB_PORT: ${{ env.DB_PORT }}
         run: |
+          # Ensure database is reachable from Node before migrating
+          node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug || echo "migrate failed or not required"
 
       - name: Start server (background)
@@ -256,7 +258,9 @@ jobs:
           DB_NAME: prochatadmin
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
-        run: npx sequelize-cli db:migrate --debug
+        run: |
+          node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
+          npx sequelize-cli db:migrate --debug
 
       - name: Start server (background)
         working-directory: server
