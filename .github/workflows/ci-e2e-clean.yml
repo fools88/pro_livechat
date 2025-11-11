@@ -366,8 +366,8 @@ jobs:
 
       - name: Ensure DBs inside Postgres container
         run: |
-          echo "Robust wait for Postgres to accept connections (max 120s)"
-          MAX_TRIES=120
+          echo "Robust wait for Postgres to accept connections (max 300s)"
+          MAX_TRIES=300
           TRY=0
           mkdir -p server/ci/out || true
           while true; do
