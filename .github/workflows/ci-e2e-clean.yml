@@ -331,7 +331,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
+      - name: Prepare host output dir and start infra (Docker Compose)
+        run: |
+          echo "Ensure host directory for CI output exists before starting containers"
+          mkdir -p server/ci/out || true
+          chmod -R 0777 server/ci/out || true
+          ls -la server/ci || true
+          docker compose -f docker-compose.ci.yml up -d
 
       - name: Upload early infra diagnostics artifact
         if: failure()
