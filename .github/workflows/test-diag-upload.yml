@@ -1,0 +1,25 @@
+name: Test - diag artifact upload
+
+on:
+  push:
+    branches:
+      - test/bundle-analyze-run
+
+jobs:
+  test-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write diag file
+        run: |
+          mkdir -p server/ci/out
+          echo "TEST DIAG $(date -u)" > server/ci/out/diag-init.txt
+          cat server/ci/out/diag-init.txt
+
+      - name: Upload diag
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-init-test
+          path: server/ci/out/diag-init.txt
