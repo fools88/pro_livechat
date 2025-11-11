@@ -198,6 +198,7 @@ jobs:
             tmp/ready_checks.log
             server/tmp_e2e_output.txt
             server/tmp_e2e_direct.txt
+            server/ci/out/*
 
       - name: Quick diagnostics on failure
         if: failure()
@@ -474,6 +475,7 @@ jobs:
             server/tmp/*.log
             server/tools/*.log
             server/*.log
+            server/ci/out/*
 
       - name: Tear down infra
         if: always()
