@@ -262,6 +262,27 @@ jobs:
           node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug
 
+  init-script-smoke:
+    name: Init script smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run init script smoke test
+        run: |
+          chmod +x server/ci/ci-initdb.sh || true
+          mkdir -p server/ci/out
+          chmod -R 0777 server/ci/out || true
+          bash server/tools/test_ci_initdb.sh
+
+      - name: Upload smoke outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: init-smoke-out
+          path: server/ci/out/*
+
       - name: Start server (background)
         working-directory: server
         env:
@@ -310,56 +331,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-  init-script-smoke:
-    name: Init script smoke test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run init script smoke test
-        run: |
-          chmod +x server/ci/ci-initdb.sh || true
-          mkdir -p server/ci/out
-          chmod -R 0777 server/ci/out || true
-          bash server/tools/test_ci_initdb.sh
-
-      - name: Ensure no leftover docker-compose infra (clean volumes)
-        run: |
-          echo "Bringing down any previous docker compose infra and removing volumes (CI fresh start)"
-          docker compose -f docker-compose.ci.yml down --volumes || true
-
-      - name: Prepare host output dir and start infra (Docker Compose)
-        run: |
-          echo "Ensure host directory for CI output exists before starting containers"
-          mkdir -p server/ci/out || true
-          chmod -R 0777 server/ci/out || true
-          ls -la server/ci || true
-          docker compose -f docker-compose.ci.yml up -d
-
-      - name: Immediate infra diagnostics (early)
-        run: |
-          echo "Creating server/ci/out and capturing immediate infra state"
-          mkdir -p server/ci/out || true
-          # docker compose ps (full) and ps (short)
-          docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-all.txt || true
-          docker compose -f docker-compose.ci.yml ps > server/ci/out/compose-ps.txt || true
-
-          # capture logs quickly so we have early evidence
-          docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-early.log 2>&1 || true
-          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-early.log 2>&1 || true
-
-          # save ps to infra-ps.txt too for backwards compatibility
-          docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
-
-          # inspect db container init dir and ci-initdb script (if mounted)
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d || true' > server/ci/out/initd-list.txt 2>&1 || true
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,400p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' > server/ci/out/ci-initdb-sh.txt 2>&1 || true
-
-          # docker inspect the db container (if available)
-          CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
-          if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect.json 2>&1 || true; else echo "no db container id" > server/ci/out/db-inspect.json; fi
+      
 
       - name: Upload early infra diagnostics artifact
         if: failure()
