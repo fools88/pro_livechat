@@ -187,7 +187,7 @@ jobs:
           fi
 
       - name: Upload logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-ci-logs
@@ -478,7 +478,6 @@ jobs:
           psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochatadmin || true
 
       - name: Wait for prochat_db (pre-migration guard)
-        working-directory: server
         env:
           DB_PASSWORD: ${{ env.DB_PASSWORD }}
         run: |
@@ -487,9 +486,16 @@ jobs:
           TRY=0
           while true; do
             TRY=$((TRY+1))
-            if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1' >/dev/null 2>&1; then
-              echo "prochat_db found after $TRY attempts"
-              break
+            # First check TCP readiness inside the container to avoid unix-socket vs tcp races
+            if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'pg_isready -U prochatadmin -h 127.0.0.1' >/dev/null 2>&1; then
+              echo "pg_isready OK (attempt $TRY)"
+              # Now confirm the database exists via TCP psql
+              if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1' >/dev/null 2>&1; then
+                echo "prochat_db found after $TRY attempts"
+                break
+              fi
+            else
+              echo "pg_isready not ready (attempt $TRY)"
             fi
             if [ $TRY -ge $MAX_TRIES ]; then
               echo "Timeout waiting for prochat_db inside Postgres container"
@@ -534,6 +540,8 @@ jobs:
         run: |
           # Ensure host-side output dir exists so artifacts can be uploaded
           mkdir -p server/ci/out || true
+          # Create a small placeholder so upload step never fails with "No files were found"
+          echo "diag-init placeholder: $(date -u)" > server/ci/out/diag-init.txt || true
           OUTFILE=server/ci/out/diag-init.txt
           echo "=== diagnostic run: $(date -u) ===" > $OUTFILE
 
@@ -571,6 +579,10 @@ jobs:
             echo "marker check failed; including db logs" >> $OUTFILE
             docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
           fi
+
+          echo "--- docker inspect db container (if present) ---" >> $OUTFILE
+          CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+          if [ -n "$CID" ]; then docker inspect $CID >> $OUTFILE 2>&1 || true; else echo "no db container id" >> $OUTFILE; fi
 
           echo "=== end diagnostic ===" | tee -a $OUTFILE
 
@@ -633,7 +645,7 @@ jobs:
           echo "==== END DIAGNOSTICS ===="
 
       - name: Upload logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-logs
