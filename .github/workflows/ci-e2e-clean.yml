@@ -434,6 +434,13 @@ jobs:
 
           echo "=== end diagnostic ===" | tee -a $OUTFILE
 
+      - name: Upload diagnostic artifact (diag-init)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-init
+          path: server/ci/out/diag-init.txt
+
       - name: Start server (mocked) in background
         working-directory: server
         run: |
