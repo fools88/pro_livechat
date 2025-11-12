@@ -280,6 +280,71 @@ jobs:
           node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug
 
+  migrate-only:
+    name: Migrate-only (fast feedback)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        ports: ['5432:5432']
+        env:
+          POSTGRES_USER: prochatadmin
+          POSTGRES_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          POSTGRES_DB: prochatadmin
+        options: >-
+          --health-cmd "pg_isready -U prochatadmin" --health-interval 5s --health-timeout 2s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 2s --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: Wait for Postgres (TCP)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client || true
+          for i in `seq 1 30`; do
+            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
+          done
+
+      - name: Ensure DB and run migrations
+        working-directory: server
+        env:
+          DB_USER: prochatadmin
+          DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+        run: |
+          set -euo pipefail
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${DB_PASSWORD}"
+          dropdb --if-exists --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          # run migrations and capture output
+          npx sequelize-cli db:migrate --config config/config.js 2>&1 | tee migrate.log || true
+
+      - name: Upload migrate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migrate-output
+          path: |
+            server/migrate.log
+            server/ci/out/*
+
   init-script-smoke:
     name: Init script smoke test
     runs-on: ubuntu-latest
