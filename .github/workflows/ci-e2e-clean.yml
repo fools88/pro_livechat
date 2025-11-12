@@ -299,6 +299,11 @@ jobs:
           name: init-smoke-out
           path: server/ci/out/*
 
+      - name: Install server deps (for smoke job)
+        working-directory: server
+        run: |
+          npm ci
+
       - name: Start server (background)
         working-directory: server
         env:
