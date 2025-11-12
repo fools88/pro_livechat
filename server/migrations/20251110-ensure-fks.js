@@ -15,13 +15,19 @@ module.exports = {
           console.warn('Skipping fk_aiknowledges_website: referenced table Websites does not exist yet');
           return;
         }
-        await queryInterface.addConstraint('AIKnowledges', {
+        // Skip if constraint already exists
+        const [exists] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_aiknowledges_website' LIMIT 1;");
+        if (Array.isArray(exists) && exists.length > 0) {
+          console.log('fk_aiknowledges_website already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('AIKnowledges', {
           fields: ['websiteId'],
           type: 'foreign key',
           name: 'fk_aiknowledges_website',
           references: { table: 'Websites', field: 'id' },
           onDelete: 'CASCADE'
-        });
+          });
+        }
         console.log('✅ Added fk_aiknowledges_website');
       } catch (err) {
         console.warn('Could not add fk_aiknowledges_website (already exists or missing table):', err && err.message);
@@ -37,13 +43,18 @@ module.exports = {
           console.warn('Skipping fk_aiknowledges_category: referenced table KnowledgeCategories does not exist yet');
           return;
         }
-        await queryInterface.addConstraint('AIKnowledges', {
+        const [exists2] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_aiknowledges_category' LIMIT 1;");
+        if (Array.isArray(exists2) && exists2.length > 0) {
+          console.log('fk_aiknowledges_category already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('AIKnowledges', {
           fields: ['categoryId'],
           type: 'foreign key',
           name: 'fk_aiknowledges_category',
           references: { table: 'KnowledgeCategories', field: 'id' },
           onDelete: 'SET NULL'
-        });
+          });
+        }
         console.log('✅ Added fk_aiknowledges_category');
       } catch (err) {
         console.warn('Could not add fk_aiknowledges_category (already exists or missing table):', err && err.message);
@@ -59,13 +70,18 @@ module.exports = {
           console.warn('Skipping fk_aipersonas_website: referenced table Websites does not exist yet');
           return;
         }
-        await queryInterface.addConstraint('AIPersonas', {
+        const [exists3] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_aipersonas_website' LIMIT 1;");
+        if (Array.isArray(exists3) && exists3.length > 0) {
+          console.log('fk_aipersonas_website already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('AIPersonas', {
           fields: ['websiteId'],
           type: 'foreign key',
           name: 'fk_aipersonas_website',
           references: { table: 'Websites', field: 'id' },
           onDelete: 'CASCADE'
-        });
+          });
+        }
         console.log('✅ Added fk_aipersonas_website');
       } catch (err) {
         console.warn('Could not add fk_aipersonas_website (already exists or missing table):', err && err.message);
@@ -81,13 +97,18 @@ module.exports = {
           console.warn('Skipping fk_airules_website: referenced table Websites does not exist yet');
           return;
         }
-        await queryInterface.addConstraint('AIRules', {
+        const [exists4] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_airules_website' LIMIT 1;");
+        if (Array.isArray(exists4) && exists4.length > 0) {
+          console.log('fk_airules_website already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('AIRules', {
           fields: ['websiteId'],
           type: 'foreign key',
           name: 'fk_airules_website',
           references: { table: 'Websites', field: 'id' },
           onDelete: 'CASCADE'
-        });
+          });
+        }
         console.log('✅ Added fk_airules_website');
       } catch (err) {
         console.warn('Could not add fk_airules_website (already exists or missing table):', err && err.message);
@@ -103,13 +124,18 @@ module.exports = {
           console.warn('Skipping fk_conversations_website: referenced table Websites does not exist yet');
           return;
         }
-        await queryInterface.addConstraint('Conversations', {
+        const [exists5] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_conversations_website' LIMIT 1;");
+        if (Array.isArray(exists5) && exists5.length > 0) {
+          console.log('fk_conversations_website already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('Conversations', {
           fields: ['websiteId'],
           type: 'foreign key',
           name: 'fk_conversations_website',
           references: { table: 'Websites', field: 'id' },
           onDelete: 'CASCADE'
-        });
+          });
+        }
         console.log('✅ Added fk_conversations_website');
       } catch (err) {
         console.warn('Could not add fk_conversations_website (already exists or missing table):', err && err.message);
@@ -119,13 +145,18 @@ module.exports = {
     // Conversations.visitorId -> Visitors.id
     attempts.push((async () => {
       try {
-        await queryInterface.addConstraint('Conversations', {
+        const [exists6] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_conversations_visitor' LIMIT 1;");
+        if (Array.isArray(exists6) && exists6.length > 0) {
+          console.log('fk_conversations_visitor already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('Conversations', {
           fields: ['visitorId'],
           type: 'foreign key',
           name: 'fk_conversations_visitor',
           references: { table: 'Visitors', field: 'id' },
           onDelete: 'CASCADE'
-        });
+          });
+        }
         console.log('✅ Added fk_conversations_visitor');
       } catch (err) {
         console.warn('Could not add fk_conversations_visitor (already exists or missing table):', err && err.message);
