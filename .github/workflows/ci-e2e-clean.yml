@@ -439,6 +439,16 @@ jobs:
             echo "DBs ensured"
           '
 
+          # CI defensive reset: drop and recreate prochat_db inside the Postgres container to guarantee a clean DB
+          echo "Forcing drop/create of prochat_db inside Postgres container (CI-only)" > server/ci/out/db-reset-in-container.txt 2>&1 || true
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc '
+            set -e
+            # drop if exists then recreate to ensure migrations run on a clean DB
+            psql -h 127.0.0.1 -U prochatadmin -c "DROP DATABASE IF EXISTS prochat_db" || true
+            psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochat_db" || true
+            echo "prochat_db dropped and recreated"
+          ' >> server/ci/out/db-reset-in-container.txt 2>&1 || true
+
           echo "Verifying DB list"
           # use TCP host so psql doesn't try a Unix socket which may not be present
           docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list.txt 2>&1 || true
