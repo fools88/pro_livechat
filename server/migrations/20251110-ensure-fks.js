@@ -8,6 +8,13 @@ module.exports = {
     // AIKnowledges.websiteId -> Websites.id
     attempts.push((async () => {
       try {
+        // Check referenced table exists before attempting to add constraint
+        const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."Websites"') as reg;`);
+        const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
+        if (!tableExists) {
+          console.warn('Skipping fk_aiknowledges_website: referenced table Websites does not exist yet');
+          return;
+        }
         await queryInterface.addConstraint('AIKnowledges', {
           fields: ['websiteId'],
           type: 'foreign key',
@@ -24,6 +31,12 @@ module.exports = {
     // AIKnowledges.categoryId -> KnowledgeCategories.id
     attempts.push((async () => {
       try {
+        const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."KnowledgeCategories"') as reg;`);
+        const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
+        if (!tableExists) {
+          console.warn('Skipping fk_aiknowledges_category: referenced table KnowledgeCategories does not exist yet');
+          return;
+        }
         await queryInterface.addConstraint('AIKnowledges', {
           fields: ['categoryId'],
           type: 'foreign key',
@@ -40,6 +53,12 @@ module.exports = {
     // AIPersonas.websiteId -> Websites.id
     attempts.push((async () => {
       try {
+        const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."Websites"') as reg;`);
+        const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
+        if (!tableExists) {
+          console.warn('Skipping fk_aipersonas_website: referenced table Websites does not exist yet');
+          return;
+        }
         await queryInterface.addConstraint('AIPersonas', {
           fields: ['websiteId'],
           type: 'foreign key',
@@ -56,6 +75,12 @@ module.exports = {
     // AIRules.websiteId -> Websites.id
     attempts.push((async () => {
       try {
+        const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."Websites"') as reg;`);
+        const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
+        if (!tableExists) {
+          console.warn('Skipping fk_airules_website: referenced table Websites does not exist yet');
+          return;
+        }
         await queryInterface.addConstraint('AIRules', {
           fields: ['websiteId'],
           type: 'foreign key',
@@ -72,6 +97,12 @@ module.exports = {
     // Conversations.websiteId -> Websites.id
     attempts.push((async () => {
       try {
+        const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."Websites"') as reg;`);
+        const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
+        if (!tableExists) {
+          console.warn('Skipping fk_conversations_website: referenced table Websites does not exist yet');
+          return;
+        }
         await queryInterface.addConstraint('Conversations', {
           fields: ['websiteId'],
           type: 'foreign key',

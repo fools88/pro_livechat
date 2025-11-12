@@ -14,16 +14,21 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
     });
     try {
-      await queryInterface.addConstraint('AIPersonas', {
-        fields: ['websiteId'], type: 'foreign key', name: 'fk_aipersonas_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
-      });
+      const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."Websites"') as reg;`);
+      const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
+      if (tableExists) {
+        await queryInterface.addConstraint('AIPersonas', {
+          fields: ['websiteId'], type: 'foreign key', name: 'fk_aipersonas_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
+        });
+      } else {
+        console.warn('Skipping fk_aipersonas_website: referenced table Websites not present yet');
+      }
     } catch (err) {
-      // Non-fatal: some CI ordering can run this migration before Websites exists.
       console.warn('Warning: could not add fk_aipersonas_website constraint in migration 20251103 -', err.message);
     }
   },
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeConstraint('AIPersonas', 'fk_aipersonas_website');
+    try { await queryInterface.removeConstraint('AIPersonas', 'fk_aipersonas_website'); } catch (e) { /* ignore */ }
     await queryInterface.dropTable('AIPersonas');
   }
 };
