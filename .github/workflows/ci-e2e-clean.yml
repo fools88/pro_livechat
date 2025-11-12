@@ -348,8 +348,10 @@ jobs:
           export DB_PORT=${PGPORT}
           export DB_NAME=prochat_db
 
-          # run migrations and capture output
-          npx sequelize-cli db:migrate --config config/config.js 2>&1 | tee migrate.log || true
+          # run migrations with explicit connection URL to avoid config/env mismatch
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${PGHOST}:${PGPORT}/prochat_db"
+          echo "Using DATABASE_URL=${DATABASE_URL}" > server/migrate.env || true
+          DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug 2>&1 | tee migrate.log || true
 
       - name: Upload migrate artifact
         if: always()
@@ -629,7 +631,9 @@ jobs:
             fi
             echo "Waiting for ${DB_NAME} to exist (attempt $i)"; sleep 2
           done
-          npx sequelize-cli db:migrate --config config/config.js || echo "migrate failed or not required"
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          echo "Using DATABASE_URL=${DATABASE_URL}" > server/ci/out/migrate.env || true
+          DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug || echo "migrate failed or not required"
 
       - name: 'Defensive: wait for prochat_db inside Postgres container'
         run: |
