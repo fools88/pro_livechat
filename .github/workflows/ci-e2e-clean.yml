@@ -333,6 +333,21 @@ jobs:
           export PGPASSWORD="${DB_PASSWORD}"
           dropdb --if-exists --host=${PGHOST} --port=${PGPORT} prochat_db || true
           createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          # wait until prochat_db is visible via TCP psql (small retry loop)
+          for i in `seq 1 30`; do
+            if psql -h ${PGHOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochat_db'" | grep -q 1; then
+              echo "prochat_db visible (attempt $i)"; break
+            fi
+            echo "prochat_db not visible yet (attempt $i), sleeping..."; sleep 1
+          done
+
+          # Export env vars so sequelize-cli picks them up in config
+          export DB_USER=${DB_USER}
+          export DB_PASSWORD=${DB_PASSWORD}
+          export DB_HOST=${PGHOST}
+          export DB_PORT=${PGPORT}
+          export DB_NAME=prochat_db
+
           # run migrations and capture output
           npx sequelize-cli db:migrate --config config/config.js 2>&1 | tee migrate.log || true
 
@@ -607,6 +622,13 @@ jobs:
           DB_PORT=${DB_PORT:-5432}; \
           DB_NAME=${DB_NAME:-prochat_db}; \
           export DB_USER DB_PASSWORD DB_HOST DB_PORT DB_NAME; \
+          # Wait up to ~60s for the database to appear via TCP (avoid socket vs env races)
+          for i in `seq 1 30`; do
+            if psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1; then
+              echo "${DB_NAME} exists (attempt $i)"; break
+            fi
+            echo "Waiting for ${DB_NAME} to exist (attempt $i)"; sleep 2
+          done
           npx sequelize-cli db:migrate --config config/config.js || echo "migrate failed or not required"
 
       - name: 'Defensive: wait for prochat_db inside Postgres container'
