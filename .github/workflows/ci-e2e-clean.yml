@@ -337,7 +337,7 @@ jobs:
 
       - name: Wait for Postgres (TCP)
         run: |
-          sudo apt-get update -y && sudo apt-get install -y postgresql-client || true
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
           for i in `seq 1 30`; do
             pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
           done
@@ -357,6 +357,10 @@ jobs:
           export PGUSER=${DB_USER}
           dropdb --if-exists -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
           createdb --owner=${DB_USER} -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
+          # Create a runner-owned marker file so containers don't need to write to host mounts
+          mkdir -p server/ci/out || true
+          touch server/ci/out/ci-initdb-done || true
+          chmod 0666 server/ci/out/ci-initdb-done || true
           # wait until prochat_db is visible via TCP psql (small retry loop)
           for i in `seq 1 30`; do
             if psql -h ${PGHOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochat_db'" | grep -q 1; then
@@ -364,6 +368,15 @@ jobs:
             fi
             echo "prochat_db not visible yet (attempt $i), sleeping..."; sleep 1
           done
+
+          # Ensure Redis is reachable before running migrations
+          if command -v redis-cli >/dev/null 2>&1; then
+            for i in `seq 1 30`; do
+              redis-cli -h 127.0.0.1 -p 6379 ping && break || sleep 1
+            done
+          else
+            echo "redis-cli not available on runner, skipping redis ping"
+          fi
 
           # Export env vars so sequelize-cli picks them up in config
           export DB_USER=${DB_USER}
