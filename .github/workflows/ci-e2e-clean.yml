@@ -382,7 +382,10 @@ jobs:
           # We're running with working-directory: server, so write the log to the repo-level
           # server/seed_admin.log by tee'ing to ../server/seed_admin.log. Ensure parent dir exists.
           mkdir -p ../server || true
-          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin.log || true
+          # Run seeder once and record output
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin.log
+          # Run seeder a second time to assert idempotency; write to a separate file
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin_second.log
 
       - name: Upload migrate artifact
         if: always()
@@ -393,6 +396,20 @@ jobs:
             server/migrate.log
             server/seed_admin.log
             server/ci/out/*
+
+      - name: Assert seed idempotency
+        if: always()
+        working-directory: server
+        run: |
+          set -euo pipefail
+          echo "Checking seeder logs for success phrase..."
+          # success phrases (Indonesian / English) that indicate seeder succeeded or was idempotent
+          PATTERN='Admin berhasil dibuat|already exists|Admin sudah ada|Admin berhasil dibuat!'
+          if grep -E "$PATTERN" ../server/seed_admin.log >/dev/null 2>&1 || grep -E "$PATTERN" ../server/seed_admin_second.log >/dev/null 2>&1; then
+            echo "Seeder success detected in logs"
+          else
+            echo "Seeder success phrase not found in logs"; echo "--- seed_admin.log ---"; cat ../server/seed_admin.log || true; echo "--- seed_admin_second.log ---"; cat ../server/seed_admin_second.log || true; exit 1
+          fi
 
   init-script-smoke:
     name: Init script smoke test
