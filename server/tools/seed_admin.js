@@ -17,10 +17,11 @@ async function seedAdmin() {
     // admin or create it with the provided defaults.
     const [admin, created] = await User.findOrCreate({
       where: { email: 'admin@prochat.local' },
+      // Use model's actual column names in defaults (passwordHash is the DB column)
       defaults: {
         username: 'admin',
         email: 'admin@prochat.local',
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         role: 'admin'
       }
     });
