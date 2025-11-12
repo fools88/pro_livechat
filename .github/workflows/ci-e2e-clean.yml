@@ -331,8 +331,9 @@ jobs:
           export PGHOST=127.0.0.1
           export PGPORT=5432
           export PGPASSWORD="${DB_PASSWORD}"
-          dropdb --if-exists --host=${PGHOST} --port=${PGPORT} prochat_db || true
-          createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          export PGUSER=${DB_USER}
+          dropdb --if-exists -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
+          createdb --owner=${DB_USER} -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
           # wait until prochat_db is visible via TCP psql (small retry loop)
           for i in `seq 1 30`; do
             if psql -h ${PGHOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochat_db'" | grep -q 1; then
