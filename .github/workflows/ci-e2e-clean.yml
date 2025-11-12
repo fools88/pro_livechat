@@ -160,8 +160,13 @@ jobs:
           MOCK_VECTOR: ${{ env.MOCK_VECTOR }}
           LOG_LEVEL: ${{ env.LOG_LEVEL }}
         run: |
-          nohup node src/index.js > ci_server.log 2>&1 &
-          sleep 2
+          mkdir -p server/ci/out || true
+          nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
+          sleep 5
+          # capture basic diagnostics immediately after start
+          ps aux > server/ci/out/ps.txt || true
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
+          tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
       - name: Wait for /ready
         working-directory: server
@@ -716,8 +721,13 @@ jobs:
       - name: Start server (mocked) in background
         working-directory: server
         run: |
+          mkdir -p server/ci/out || true
           export MOCK_AI=true MOCK_VECTOR=true PORT=8081; \
-          nohup node src/index.js > ci_server.log 2>&1 &
+          nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
+          sleep 5
+          ps aux > server/ci/out/ps.txt || true
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
+          tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
       - name: Wait for /ready (server)
         working-directory: server
