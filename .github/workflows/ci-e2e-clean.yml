@@ -175,7 +175,7 @@ jobs:
           JWT_SECRET: ${{ env.JWT_SECRET }}
           SERVER_URL: http://127.0.0.1:8081
           SITE_NAME: CI E2E Site
-          SITE_URL: https://e2e.test
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: node tools/ci_create_website.js
 
       - name: Assert widget token issuance
@@ -183,7 +183,7 @@ jobs:
         env:
           JWT_SECRET: ${{ env.JWT_SECRET }}
           SERVER_URL: http://127.0.0.1:8081
-          SITE_URL: https://e2e.test
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: node tools/ci_assert_widget_token.js
 
       - name: Run E2E Agent-Assist script
@@ -647,7 +647,7 @@ jobs:
         env:
           SERVER_URL: http://127.0.0.1:8081
           SITE_NAME: "CI E2E Site"
-          SITE_URL: "https://e2e.test"
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: |
           node tools/ci_create_website.js
 
@@ -655,7 +655,7 @@ jobs:
         working-directory: server
         env:
           SERVER_URL: http://127.0.0.1:8081
-          SITE_URL: "https://e2e.test"
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: |
           node tools/ci_assert_widget_token.js
 
