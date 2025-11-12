@@ -174,13 +174,13 @@ const registerSocketHandlers = (io) => {
               ? `${secret.slice(0, Math.min(3, secret.length))}...${secret.slice(Math.max(0, secret.length - 3))} (len=${secret.length})`
               : 'MISSING';
             try {
-              logger.debug('--- [DEBUG] JWT verification attempt. JWT_SECRET present=', Boolean(process.env.JWT_SECRET), 'secretInfo=', secretInfo);
+              logger.debug(`--- [DEBUG] JWT verification attempt. JWT_SECRET present=${Boolean(process.env.JWT_SECRET)} secretInfo=${secretInfo}`);
             } catch (e) {
               // defensive: console.log should not crash
             }
             // show a short prefix of the token to correlate logs without printing whole token
             const tokenPrefix = token && token.length ? token.slice(0, 40) + (token.length > 40 ? '...' : '') : '<empty>';
-            logger.debug('--- [DEBUG] Token prefix:', tokenPrefix);
+            logger.debug(`--- [DEBUG] Token prefix=${tokenPrefix}`);
           }
 
           let decoded;
@@ -194,18 +194,15 @@ const registerSocketHandlers = (io) => {
                 if (decoded.websiteId) summary.websiteId = decoded.websiteId;
                 if (decoded.exp) summary.exp = decoded.exp;
               }
-              logger.debug('--- [DEBUG] Token verified OK. Decoded payload summary:', summary);
+              logger.debug(`--- [DEBUG] Token verified OK. Decoded payload summary=${JSON.stringify(summary)}`);
             }
           } catch (verifyErr) {
             // decode without verification to inspect payload values (safe to log)
             const decodedUnverified = jwt.decode(token) || null;
             if (jwtDebug) {
-              logger.warn('--- [DEBUG] Token verification FAILED:', verifyErr && verifyErr.message);
-              logger.debug('--- [DEBUG] Decoded (unverified) payload summary:', decodedUnverified && {
-                id: decodedUnverified.id,
-                websiteId: decodedUnverified.websiteId,
-                exp: decodedUnverified.exp
-              });
+              logger.warn(`--- [DEBUG] Token verification FAILED: ${verifyErr && verifyErr.message}`);
+              const decodedSummary = decodedUnverified ? { id: decodedUnverified.id, websiteId: decodedUnverified.websiteId, exp: decodedUnverified.exp } : null;
+              logger.debug(`--- [DEBUG] Decoded (unverified) payload summary=${JSON.stringify(decodedSummary)}`);
             }
             throw verifyErr;
           }
@@ -229,11 +226,11 @@ const registerSocketHandlers = (io) => {
             });
 
             let [conversation, isNewConversation] = await db.Conversation.findOrCreate({
-              where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
+              where: { visitorId: visitor.id, websiteId: website.id, status: 'new' },
               defaults: {
                 visitorId: visitor.id,
                 websiteId: website.id,
-                status: 'open',
+                status: 'new',
                 isAiActive: website.isAiEnabled
               }
             });
@@ -254,9 +251,9 @@ const registerSocketHandlers = (io) => {
               logger.info(`[Socket] New conversation ${conversation.id} created via token, broadcasting to admins...`);
               const convoWithDetails = await db.Conversation.findByPk(conversation.id, {
                 include: [
-                  { model: db.Visitor, as: 'visitor' },
-                  { model: db.Website, as: 'website' },
-                  { model: db.Message, as: 'Messages', limit: 1, order: [['createdAt', 'DESC']] }
+                  { model: db.Visitor },
+                  { model: db.Website },
+                  { model: db.Message, limit: 1, order: [['createdAt', 'DESC']] }
                 ]
               });
               io.emit('new_conversation', convoWithDetails);
@@ -272,7 +269,13 @@ const registerSocketHandlers = (io) => {
             authHandled = true;
           }
         } catch (e) {
-          logger.debug('--- [DEBUG] Token verification failed, will fallback to widgetKey handling if provided.');
+          // More explicit debug: show the error message/stack so we know why token handling failed
+          try {
+            logger.warn(`--- [DEBUG] Token handling failed, will fallback to widgetKey handling if provided. error=${e && (e.message || e)}`);
+            logger.debug(`--- [DEBUG] Token handling error stack=${e && e.stack}`);
+          } catch (logErr) {
+            // swallow logging errors
+          }
         }
       }
 
@@ -305,11 +308,11 @@ const registerSocketHandlers = (io) => {
   logger.debug(`--- [DEBUG] Visitor Ditemukan/Dibuat: ${visitor.id}`);
 
         let [conversation, isNewConversation] = await db.Conversation.findOrCreate({
-          where: { visitorId: visitor.id, websiteId: website.id, status: 'open' },
+          where: { visitorId: visitor.id, websiteId: website.id, status: 'new' },
           defaults: {
             visitorId: visitor.id,
             websiteId: website.id,
-            status: 'open',
+            status: 'new',
             isAiActive: website.isAiEnabled
           }
         });

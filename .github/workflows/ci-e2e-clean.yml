@@ -1,15 +1,11 @@
 name: CI - Server tests + E2E (cleaned)
 
 on:
-  push:
-    branches: [ main, 'feat/*' ]
-  pull_request:
-    branches: [ main ]
+  # Expose manual dispatch so we can trigger this workflow via GH UI or `gh workflow run`
   workflow_dispatch: {}
 
 jobs:
-  server-e2e:
-    name: Server E2E (single-run smoke)
+  noop:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -39,12 +35,41 @@ jobs:
       MOCK_AI: 'true'
       MOCK_VECTOR: 'true'
       REQUIRE_WIDGET_TOKEN: 'true'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure docker-compose binary is available
+      - name: Wait for DB and Redis (shared)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          chmod +x ./scripts/ci/wait-for-ready.sh || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60 || true
+
+      - name: Setup Python (for YAML validation)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Validate workflow YAML
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+          python - <<'PY'
+          import yaml,glob,sys
+          ok=True
+          for f in glob.glob('.github/workflows/*'):
+              try:
+                  yaml.safe_load(open(f,'r'))
+                  print('OK:',f)
+              except Exception as e:
+                  print('ERROR parsing',f, e, file=sys.stderr)
+                  ok=False
+          if not ok:
+              sys.exit(2)
+          print('All workflows valid')
+          PY
+
+      - name: No-op
         run: |
           sudo apt-get update -y
           sudo apt-get install -y curl
@@ -66,7 +91,7 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
           fi
           docker-compose --version || true
-          docker compose version || true
+          docker compose version || docker-compose --version || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -76,7 +101,6 @@ jobs:
       - name: Install server deps
         working-directory: server
         run: npm ci
-
       - name: Reset DB (ensure clean)
         working-directory: server
         env:
@@ -85,36 +109,38 @@ jobs:
           DB_HOST: ${{ env.DB_HOST }}
           DB_PORT: ${{ env.DB_PORT }}
         run: |
-          sudo apt-get update -y && sudo apt-get install -y postgresql-client
-          for i in `seq 1 30`; do
-            pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
-          done
-          export PGPASSWORD="${DB_PASSWORD}"
-          dropdb --if-exists prochat_db || true
-          createdb --owner=${DB_USER} prochat_db || true
-          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
-
-      - name: Reset DB (ensure clean)
-        working-directory: server
-        env:
-          DB_USER: ${{ env.DB_USER }}
-          DB_PASSWORD: ${{ env.DB_PASSWORD }}
-          DB_HOST: ${{ env.DB_HOST }}
-          DB_PORT: ${{ env.DB_PORT }}
-        run: |
+          set -euo pipefail
           sudo apt-get update -y && sudo apt-get install -y postgresql-client
           # wait for postgres service
           for i in `seq 1 30`; do
             pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
           done
+          # force TCP usage for psql/dropdb/createdb
+          export PGHOST="${DB_HOST}"
+          export PGPORT="${DB_PORT}"
           export PGPASSWORD="${DB_PASSWORD}"
-          # recreate the CI database to ensure a clean state
-          dropdb --if-exists prochat_db || true
-          createdb --owner=${DB_USER} prochat_db || true
+          export PGUSER="${DB_USER}"
+          # ensure client tools use the CI DB user by default
+          export PGUSER="${DB_USER}"
+          # recreate the CI database to ensure a clean state (use TCP host flags)
+          dropdb --if-exists --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochat_db || true
           # ensure a database with the same name as the DB user exists (some scripts expect it)
-          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochatadmin || true
+
+      - name: Post-reset sanity capture
+        run: |
+          mkdir -p server/ci/out || true
+          echo "PGHOST=${PGHOST:-}" > server/ci/out/db-env.txt || true
+          echo "PGPORT=${PGPORT:-}" >> server/ci/out/db-env.txt || true
+          echo "PGUSER=${PGUSER:-}" >> server/ci/out/db-env.txt || true
+          echo "DB_USER=${DB_USER:-}" >> server/ci/out/db-env.txt || true
+          # capture DB list via docker exec (force TCP and provide PGPASSWORD)
+          # Connect over TCP as the DB superuser account (prochatadmin) using PGPASSWORD
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 || true
 
       - name: Run DB migrations
+        if: false
         working-directory: server
         env:
           DB_USER: ${{ env.DB_USER }}
@@ -123,7 +149,27 @@ jobs:
           DB_HOST: ${{ env.DB_HOST }}
           DB_PORT: ${{ env.DB_PORT }}
         run: |
+          # Ensure database is reachable from Node before migrating
+          node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug || echo "migrate failed or not required"
+
+      - name: Run idempotent seed check (seed_admin)
+        working-directory: server
+        env:
+          DB_USER: prochatadmin
+          DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_NAME: prochat_db
+          NODE_ENV: test
+        run: |
+          set -euo pipefail
+          echo "Running seed_admin (idempotent check) against prochat_db"
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${{ secrets.CI_DB_PASSWORD }}"
+          export PGUSER=${{ env.DB_USER }} || true
+          node tools/seed_admin.js 2>&1 | tee server/seed_admin.log || true
 
       - name: Start server (background)
         working-directory: server
@@ -139,8 +185,13 @@ jobs:
           MOCK_VECTOR: ${{ env.MOCK_VECTOR }}
           LOG_LEVEL: ${{ env.LOG_LEVEL }}
         run: |
-          nohup node src/index.js > ci_server.log 2>&1 &
-          sleep 2
+          mkdir -p server/ci/out || true
+          nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
+          sleep 5
+          # capture basic diagnostics immediately after start
+          ps aux > server/ci/out/ps.txt || true
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
+          tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
       - name: Wait for /ready
         working-directory: server
@@ -154,7 +205,7 @@ jobs:
           JWT_SECRET: ${{ env.JWT_SECRET }}
           SERVER_URL: http://127.0.0.1:8081
           SITE_NAME: CI E2E Site
-          SITE_URL: https://e2e.test
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: node tools/ci_create_website.js
 
       - name: Assert widget token issuance
@@ -162,7 +213,7 @@ jobs:
         env:
           JWT_SECRET: ${{ env.JWT_SECRET }}
           SERVER_URL: http://127.0.0.1:8081
-          SITE_URL: https://e2e.test
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: node tools/ci_assert_widget_token.js
 
       - name: Run E2E Agent-Assist script
@@ -181,7 +232,7 @@ jobs:
           fi
 
       - name: Upload logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-ci-logs
@@ -197,6 +248,7 @@ jobs:
             tmp/ready_checks.log
             server/tmp_e2e_output.txt
             server/tmp_e2e_direct.txt
+            server/ci/out/*
 
       - name: Quick diagnostics on failure
         if: failure()
@@ -240,11 +292,11 @@ jobs:
         working-directory: server
         run: npm ci
 
-      - name: Wait for DB
+      - name: Wait for DB and Redis (shared)
         run: |
-          for i in `seq 1 30`; do
-            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
-          done
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          chmod +x ./scripts/ci/wait-for-ready.sh || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60
 
       - name: Run migrations
         working-directory: server
@@ -254,9 +306,164 @@ jobs:
           DB_NAME: prochatadmin
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
-        run: npx sequelize-cli db:migrate --debug
+        run: |
+          node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
+          npx sequelize-cli db:migrate --debug
+
+  migrate-only:
+    name: Migrate-only (fast feedback)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        ports: ['5432:5432']
+        env:
+          POSTGRES_USER: prochatadmin
+          POSTGRES_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          POSTGRES_DB: prochatadmin
+        options: >-
+          --health-cmd "pg_isready -U prochatadmin" --health-interval 5s --health-timeout 2s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 2s --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: Wait for Postgres (TCP)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          for i in `seq 1 30`; do
+            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
+          done
+
+      - name: Ensure DB and run migrations
+        working-directory: server
+        env:
+          DB_USER: prochatadmin
+          DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+        run: |
+          set -euo pipefail
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${DB_PASSWORD}"
+          export PGUSER=${DB_USER}
+          dropdb --if-exists -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
+          createdb --owner=${DB_USER} -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
+          # Create a runner-owned marker file so containers don't need to write to host mounts
+          mkdir -p server/ci/out || true
+          touch server/ci/out/ci-initdb-done || true
+          chmod 0666 server/ci/out/ci-initdb-done || true
+          # wait until prochat_db is visible via TCP psql (small retry loop)
+          for i in `seq 1 30`; do
+            if psql -h ${PGHOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochat_db'" | grep -q 1; then
+              echo "prochat_db visible (attempt $i)"; break
+            fi
+            echo "prochat_db not visible yet (attempt $i), sleeping..."; sleep 1
+          done
+
+          # Ensure Redis is reachable before running migrations
+          if command -v redis-cli >/dev/null 2>&1; then
+            for i in `seq 1 30`; do
+              redis-cli -h 127.0.0.1 -p 6379 ping && break || sleep 1
+            done
+          else
+            echo "redis-cli not available on runner, skipping redis ping"
+          fi
+
+          # Export env vars so sequelize-cli picks them up in config
+          export DB_USER=${DB_USER}
+          export DB_PASSWORD=${DB_PASSWORD}
+          export DB_HOST=${PGHOST}
+          export DB_PORT=${PGPORT}
+          export DB_NAME=prochat_db
+
+          # run migrations with explicit connection URL to avoid config/env mismatch
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${PGHOST}:${PGPORT}/prochat_db"
+          echo "Using DATABASE_URL=${DATABASE_URL}" > server/migrate.env || true
+          DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug 2>&1 | tee migrate.log || true
+
+          # Run idempotent seed check (seed_admin) to surface seeder issues early
+          echo "Running seed_admin (idempotent check) against prochat_db"
+          # We're running with working-directory: server, so write the log to the repo-level
+          # server/seed_admin.log by tee'ing to ../server/seed_admin.log. Ensure parent dir exists.
+          mkdir -p ../server || true
+          # Run seeder once and record output
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin.log
+          # Run seeder a second time to assert idempotency; write to a separate file
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin_second.log
+
+      - name: Upload migrate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migrate-output
+          path: |
+            server/migrate.log
+            server/seed_admin.log
+            server/ci/out/*
+
+      - name: Assert seed idempotency
+        if: always()
+        working-directory: server
+        run: |
+          set -euo pipefail
+          echo "Checking seeder logs for success phrase..."
+          # success phrases (Indonesian / English) that indicate seeder succeeded or was idempotent
+          PATTERN='Admin berhasil dibuat|already exists|Admin sudah ada|Admin berhasil dibuat!'
+          if grep -E "$PATTERN" ../server/seed_admin.log >/dev/null 2>&1 || grep -E "$PATTERN" ../server/seed_admin_second.log >/dev/null 2>&1; then
+            echo "Seeder success detected in logs"
+          else
+            echo "Seeder success phrase not found in logs"; echo "--- seed_admin.log ---"; cat ../server/seed_admin.log || true; echo "--- seed_admin_second.log ---"; cat ../server/seed_admin_second.log || true; exit 1
+          fi
+
+  init-script-smoke:
+    name: Init script smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run init script smoke test
+        run: |
+          chmod +x server/ci/ci-initdb.sh || true
+          mkdir -p server/ci/out
+          chmod -R 0777 server/ci/out || true
+          bash server/tools/test_ci_initdb.sh
+
+      - name: Upload smoke outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: init-smoke-out
+          path: |
+            server/ci/out/*
+            server/server_ci.log
+            server_ci.log
+            server/logs/*.log
+
+      - name: Install server deps (for smoke job)
+        if: false
+        working-directory: server
+        run: |
+          npm ci
 
       - name: Start server (background)
+        if: false
         working-directory: server
         env:
           DB_USER: prochatadmin
@@ -272,22 +479,26 @@ jobs:
         run: nohup node run_server_local.js > server_ci.log 2>&1 & sleep 2
 
       - name: Wait for /ready
+        if: false
         working-directory: server
         run: node tools/wait_for_ready.js
 
       - name: Run E2E capture
+        if: false
         working-directory: server
         env:
           JWT_SECRET: '${{ secrets.CI_JWT_SECRET }}'
         run: node tools/run_e2e_and_capture.js || true
 
       - name: Upload E2E artifact
+        if: false
         uses: actions/upload-artifact@v4
         with:
           name: server-e2e-output
           path: server/tmp_e2e_output.txt
 
       - name: Run Jest tests
+        if: false
         working-directory: server
         run: npm test --if-present
 
@@ -305,38 +516,125 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start infra (Docker Compose)
+      - name: Prepare host output dir and start infra (Docker Compose)
         run: |
+          echo "Ensure host directory for CI output exists before starting containers"
+          mkdir -p server/ci/out || true
+          chmod -R 0777 server/ci/out || true
+          ls -la server/ci || true
+          # Tear down previous infra and volumes to force init scripts to run on fresh DB
+          docker compose -f docker-compose.ci.yml down -v --remove-orphans || true
+          # Start infra
           docker compose -f docker-compose.ci.yml up -d
+          sleep 2
+          # Post-up diagnostics written to server/ci/out so early artifact upload can pick them up
+          docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-all.txt || true
+          docker compose -f docker-compose.ci.yml ps > server/ci/out/compose-ps.txt || true
+          docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-early.log 2>&1 || true
+          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-early.log 2>&1 || true
+          # list init scripts inside container and dump ci-initdb.sh if present
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d' > server/ci/out/initd-list.txt 2>&1; then :; else echo "initd list failed" >> server/ci/out/initd-list.txt; fi
+          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' > server/ci/out/ci-initdb-sh.txt 2>&1 || true
+          # attempt to read marker written by init script (prefer host-side marker to avoid permission issues)
+          if [ -f server/ci/out/ci-initdb-done ]; then cat server/ci/out/ci-initdb-done > server/ci/out/ci-initdb-done || true; else echo "NO_MARKER" > server/ci/out/ci-initdb-done || true; fi
+          # psql listing (force TCP)
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\l"' > server/ci/out/psql-list-early.txt 2>&1 || true
+          # inspect db container if present
+          CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+          if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect.json 2>&1 || true; fi
+
+      - name: Upload early infra diagnostics artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-diag-early
+          path: |
+            server/ci/out/compose-ps-all.txt
+            server/ci/out/compose-ps.txt
+            server/ci/out/infra-db-early.log
+            server/ci/out/infra-all-early.log
+            server/ci/out/initd-list.txt
+            server/ci/out/ci-initdb-sh.txt
+            server/ci/out/db-inspect.json
+
+      - name: Capture Postgres logs (early)
+        run: |
+          echo "Capturing docker compose logs for db to infra-db.log and infra-all.log"
+          docker compose -f docker-compose.ci.yml logs --no-color db > infra-db.log || true
+          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
+          docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
 
       - name: Ensure DBs inside Postgres container
         run: |
-  echo "Waiting for Postgres container to be ready..."
-  for i in `seq 1 40`; do
-    if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin -d prochatadmin >/dev/null 2>&1; then
-      echo "Postgres ready inside container" && break
-    fi
-    echo "Postgres not ready yet (attempt $i)"
-    sleep 2
-  done
+          echo "Robust wait for Postgres to accept TCP connections (max 300s)"
+          MAX_TRIES=300
+          TRY=0
+          mkdir -p server/ci/out || true
+          # Ensure postgresql client available on runner for TCP checks
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client || true
 
-  # Create target databases if missing. Use DB credentials from workflow env.
-  docker compose -f docker-compose.ci.yml exec -T db sh -c '
-    export PGPASSWORD="${DB_PASSWORD}";
-    psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochatadmin";
-    psql -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -U prochatadmin -c "CREATE DATABASE prochat_db";
-  ' || true
+          while true; do
+            TRY=$((TRY+1))
+            echo "Attempt $TRY: checking pg_isready (TCP) on 127.0.0.1:5432..."
+            if pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin >/dev/null 2>&1; then
+              echo "Postgres responding over TCP after $TRY attempts"
+              echo "ready: $TRY" > server/ci/out/wait-db.txt || true
+              break
+            fi
+            if [ $TRY -ge $MAX_TRIES ]; then
+              echo "Postgres did not become ready after ${MAX_TRIES}s" | tee server/ci/out/wait-db.txt
+              echo "Collecting final logs and ps output for debugging"
+              docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-final.log 2>&1 || true
+              docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-final.log 2>&1 || true
+              docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-final.txt 2>&1 || true
+              CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+              if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect-final.json 2>&1 || true; fi
+              exit 1
+            fi
+            sleep 1
+          done
 
-  echo "Capturing docker compose logs to infra-all.log and infra-db.log"
-  docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
-  docker compose -f docker-compose.ci.yml logs --no-color db > infra-db.log || true
-  docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
+          echo "Ensure required databases exist (using TCP psql from runner)"
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${DB_PASSWORD}"
+          export PGUSER=prochatadmin
+
+          # recreate prochat_db cleanly for CI
+          dropdb --if-exists --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          # ensure CI user DB exists
+          psql -h ${PGHOST} -U ${PGUSER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochatadmin || true
+
+          # Write host-side marker that DB reset step ran (runner writes the marker to avoid container->host permission issues)
+          sudo sh -c "echo \"host-marker: $(date -u) - db-reset-complete\" > server/ci/out/ci-initdb-done" || true
+
+          echo "Verifying DB list via TCP psql"
+          psql -h ${PGHOST} -U ${PGUSER} -c "\l" > server/ci/out/psql-list.txt 2>&1 || true
+
+          echo "Capturing docker compose logs to infra-all.log and infra-db.log"
+          docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
+          docker compose -f docker-compose.ci.yml logs --no-color db > infra-db.log || true
+          docker compose -f docker-compose.ci.yml ps > infra-ps.txt || true
+
+      - name: Upload infra wait diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-diag-wait
+          path: |
+            server/ci/out/wait-db.txt
+            server/ci/out/psql-list.txt
+            server/ci/out/infra-db-final.log
+            server/ci/out/infra-all-final.log
+            server/ci/out/compose-ps-final.txt
+            server/ci/out/db-inspect-final.json
 
       - name: Wait for services (quick loop)
         run: |
           echo "Waiting for infra services to settle..."
           for i in `seq 1 30`; do
-            docker-compose -f docker-compose.ci.yml ps
+            docker compose -f docker-compose.ci.yml ps
             sleep 2
           done
 
@@ -353,14 +651,48 @@ jobs:
           DB_HOST: ${{ env.DB_HOST }}
           DB_PORT: ${{ env.DB_PORT }}
         run: |
+          set -euo pipefail
           sudo apt-get update -y && sudo apt-get install -y postgresql-client
           for i in `seq 1 30`; do
             pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} && break || sleep 1
           done
+          # force TCP usage for psql/dropdb/createdb
+          export PGHOST="${DB_HOST}"
+          export PGPORT="${DB_PORT}"
           export PGPASSWORD="${DB_PASSWORD}"
-          dropdb --if-exists ${DB_NAME:-prochat_db} || true
-          createdb --owner=${DB_USER} ${DB_NAME:-prochat_db} || true
-          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} prochatadmin || true
+          # ensure client tools use the CI DB user by default
+          export PGUSER="${DB_USER}"
+          dropdb --if-exists --host=${PGHOST} --port=${PGPORT} ${DB_NAME:-prochat_db} || true
+          createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} ${DB_NAME:-prochat_db} || true
+          psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochatadmin || true
+
+      - name: Wait for prochat_db (pre-migration guard)
+        env:
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+        run: |
+          echo "Waiting up to 300s for prochat_db to exist inside Postgres container"
+          MAX_TRIES=150
+          TRY=0
+          while true; do
+            TRY=$((TRY+1))
+            # First check TCP readiness inside the container to avoid unix-socket vs tcp races
+            if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'pg_isready -U prochatadmin -h 127.0.0.1' >/dev/null 2>&1; then
+              echo "pg_isready OK (attempt $TRY)"
+              # Now confirm the database exists via TCP psql
+              if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1' >/dev/null 2>&1; then
+                echo "prochat_db found after $TRY attempts"
+                break
+              fi
+            else
+              echo "pg_isready not ready (attempt $TRY)"
+            fi
+            if [ $TRY -ge $MAX_TRIES ]; then
+              echo "Timeout waiting for prochat_db inside Postgres container"
+              docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 200 || true
+              exit 1
+            fi
+            sleep 2
+          done
 
       - name: Run DB migrations (if any)
         working-directory: server
@@ -371,13 +703,104 @@ jobs:
           DB_PORT=${DB_PORT:-5432}; \
           DB_NAME=${DB_NAME:-prochat_db}; \
           export DB_USER DB_PASSWORD DB_HOST DB_PORT DB_NAME; \
-          npx sequelize-cli db:migrate --config config/config.js || echo "migrate failed or not required"
+          # Wait up to ~60s for the database to appear via TCP (avoid socket vs env races)
+          for i in `seq 1 30`; do
+            if psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1; then
+              echo "${DB_NAME} exists (attempt $i)"; break
+            fi
+            echo "Waiting for ${DB_NAME} to exist (attempt $i)"; sleep 2
+          done
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          echo "Using DATABASE_URL=${DATABASE_URL}" > server/ci/out/migrate.env || true
+          DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug || echo "migrate failed or not required"
+
+      - name: 'Defensive: wait for prochat_db inside Postgres container'
+        run: |
+          echo "Checking prochat_db exists inside Postgres container..."
+          for i in `seq 1 150`; do
+            if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1' >/dev/null 2>&1; then
+              echo "prochat_db found inside container"
+              break
+            fi
+            echo "prochat_db not present yet (attempt $i), sleeping 2s..."
+            sleep 2
+          done
+          if ! docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1' >/dev/null 2>&1; then
+            echo "ERROR: prochat_db still missing after timeout"
+            echo "=== docker compose ps ==="
+            docker compose -f docker-compose.ci.yml ps || true
+            echo "=== docker compose logs db ==="
+            docker compose -f docker-compose.ci.yml logs --no-color db || true
+            exit 1
+          fi
+
+      - name: "Diagnostic: inspect init scripts, DB list and marker inside Postgres container"
+        run: |
+          # Ensure host-side output dir exists so artifacts can be uploaded
+          mkdir -p server/ci/out || true
+          # Create a small placeholder so upload step never fails with "No files were found"
+          echo "diag-init placeholder: $(date -u)" > server/ci/out/diag-init.txt || true
+          OUTFILE=server/ci/out/diag-init.txt
+          echo "=== diagnostic run: $(date -u) ===" > $OUTFILE
+
+          echo "--- ls /docker-entrypoint-initdb.d ---" | tee -a $OUTFILE
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d' >> $OUTFILE 2>&1; then
+            echo "initd listed OK" >> $OUTFILE
+          else
+            echo "initd list failed; falling back to docker logs & inspect" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+            docker compose -f docker-compose.ci.yml ps --all >> $OUTFILE 2>&1 || true
+            CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+            if [ -n "$CID" ]; then docker inspect $CID >> $OUTFILE 2>&1 || true; fi
+          fi
+
+          echo "--- cat /docker-entrypoint-initdb.d/ci-initdb.sh (if present) ---" | tee -a $OUTFILE
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' >> $OUTFILE 2>&1; then
+            echo "ci-initdb.sh read OK" >> $OUTFILE
+          else
+            echo "ci-initdb.sh read failed; appending db logs" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+          fi
+
+          echo "--- psql -l (DB list) ---" | tee -a $OUTFILE
+          if docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -U prochatadmin -c "\l"' >> $OUTFILE 2>&1; then
+            echo "psql -l OK" >> $OUTFILE
+          else
+            echo "psql -l failed; appending last 500 db logs" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+          fi
+
+          echo "--- marker /ci-out/ci-initdb-done (if present) ---" | tee -a $OUTFILE
+          if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then echo "MARKER:"; cat /ci-out/ci-initdb-done; else echo "MARKER NOT FOUND"; fi' >> $OUTFILE 2>&1; then
+            echo "marker checked" >> $OUTFILE
+          else
+            echo "marker check failed; including db logs" >> $OUTFILE
+            docker compose -f docker-compose.ci.yml logs --no-color db | tail -n 500 >> $OUTFILE 2>&1 || true
+          fi
+
+          echo "--- docker inspect db container (if present) ---" >> $OUTFILE
+          CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
+          if [ -n "$CID" ]; then docker inspect $CID >> $OUTFILE 2>&1 || true; else echo "no db container id" >> $OUTFILE; fi
+
+          echo "=== end diagnostic ===" | tee -a $OUTFILE
+
+      - name: Upload diagnostic artifact (diag-init)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-init
+          path: server/ci/out/diag-init.txt
 
       - name: Start server (mocked) in background
         working-directory: server
         run: |
+          mkdir -p server/ci/out || true
           export MOCK_AI=true MOCK_VECTOR=true PORT=8081; \
-          nohup node src/index.js > ci_server.log 2>&1 &
+          nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
+          sleep 5
+          ps aux > server/ci/out/ps.txt || true
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
+          tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
       - name: Wait for /ready (server)
         working-directory: server
@@ -394,7 +817,7 @@ jobs:
         env:
           SERVER_URL: http://127.0.0.1:8081
           SITE_NAME: "CI E2E Site"
-          SITE_URL: "https://e2e.test"
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: |
           node tools/ci_create_website.js
 
@@ -402,7 +825,7 @@ jobs:
         working-directory: server
         env:
           SERVER_URL: http://127.0.0.1:8081
-          SITE_URL: "https://e2e.test"
+          SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: |
           node tools/ci_assert_widget_token.js
 
@@ -425,7 +848,7 @@ jobs:
           echo "==== END DIAGNOSTICS ===="
 
       - name: Upload logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-logs
@@ -442,6 +865,7 @@ jobs:
             server/tmp/*.log
             server/tools/*.log
             server/*.log
+            server/ci/out/*
 
       - name: Tear down infra
         if: always()

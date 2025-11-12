@@ -118,6 +118,8 @@ npm run dev -- --port 5174
 | **Redis**        | 6379  | localhost:6379              |
 | **MinIO API**    | 9000  | http://localhost:9000       |
 | **MinIO Console**| 9001  | http://localhost:9001       |
+
+<!-- CI trigger: no-op commit to start workflows - 2025-11-09T10:55Z -->
 | **Server Backend**| 8081 | http://localhost:8081       |
 | **Dashboard**    | 5173  | http://localhost:5173       |
 | **Widget**       | 5174  | http://localhost:5174       |
@@ -218,8 +220,8 @@ set REQUIRE_WIDGET_TOKEN=true
 node tools/e2e_agent_assist_test.js
 ```
 
-Notes:
-- Do NOT commit real secrets into the repository. For CI, add `JWT_SECRET` and DB credentials to your GitHub repository secrets.
+- Notes:
+- Do NOT commit real secrets into the repository. For CI, we use a canonical secret name: `CI_JWT_SECRET` (mapped into runtime as `JWT_SECRET`). Add the CI secret and DB credentials to your GitHub repository secrets.
 - Once CI validates token-only flow, consider removing the legacy `widgetKey` fallback in production to harden security.
 
 GitHub Secrets (opsional untuk CI non-deterministik)
@@ -244,7 +246,7 @@ Ensure you have `gh` installed and are authenticated (`gh auth login`). Run thes
 ```cmd
 cd /d C:\Benny\pro_livechat
 # set required secrets (example values shown, replace with your real secrets)
-gh secret set JWT_SECRET --body "ci-test-secret"
+gh secret set CI_JWT_SECRET --body "ci-test-secret"
 gh secret set DB_USER --body "postgres"
 gh secret set DB_PASSWORD --body "postgres"
 gh secret set DB_HOST --body "127.0.0.1"
@@ -310,3 +312,6 @@ Or open Actions → select workflow → view run in GitHub web UI to inspect log
 copy server\.env.example server\.env.local
 # Edit server\.env.local dan sesuaikan JWT_SECRET/DB sebelum menjalankan server lokal (jangan commit secrets)
 ```
+\n# CI trigger:    
+
+ci-test-analyze-dashboard

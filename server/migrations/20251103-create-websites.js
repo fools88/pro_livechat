@@ -1,17 +1,12 @@
 "use strict";
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('Websites', {
-      id: { type: Sequelize.UUID, allowNull: false, primaryKey: true },
-      name: { type: Sequelize.STRING, allowNull: false },
-      url: { type: Sequelize.STRING, allowNull: false, unique: true },
-      widgetKey: { type: Sequelize.UUID, allowNull: false, unique: true },
-      createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') },
-      updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
-    });
+  up: async (_queryInterface, _Sequelize) => {
+    // No-op: moved Websites creation to an earlier migration (20251102-create-websites.js)
+    console.log('Skipping create-websites: handled by 20251102-create-websites.js');
   },
-  down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('Websites');
+  down: async (_queryInterface, _Sequelize) => {
+    // No-op
+    console.log('Skipping drop-websites in this migration; handled by 20251102-create-websites.js');
   }
 };

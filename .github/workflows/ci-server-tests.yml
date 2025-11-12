@@ -29,7 +29,7 @@ jobs:
           npm --prefix server test --silent
 
       - name: Upload E2E capture if present
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: server-e2e-output

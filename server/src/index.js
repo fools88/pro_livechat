@@ -167,16 +167,19 @@ app.get('/ready', async (req, res) => {
   // Optional: check Redis if configured. For local/dev or MOCK runs, Redis
   // failures are non-blocking (so /ready can return ok while redis is down).
   try {
-    const redisUrl = process.env.REDIS_URL || process.env.REDIS_HOST;
-    if (redisUrl) {
+    const { buildRedisClientConfig, createRedisClientFromEnv } = require('./utils/redisHelper');
+    const cfg = buildRedisClientConfig(process.env);
+    if (cfg) {
       try {
-        const { createClient } = require('redis');
-        const client = createClient({ url: redisUrl });
+        const client = createRedisClientFromEnv(process.env);
+        if (!client) throw new Error('failed to create redis client');
+        client.on('error', () => {});
         await client.connect();
         await client.ping();
         await client.disconnect();
         result.redis = 'ok';
       } catch (e) {
+        logger.warn('[ReadyCheck] Redis check failed: ' + (e && e.message));
         result.redis = 'fail';
       }
     } else {

@@ -1,0 +1,14 @@
+name: verify-ci
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Print
+        run: echo "verify-ci running"

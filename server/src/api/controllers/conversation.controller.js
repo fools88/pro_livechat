@@ -81,9 +81,14 @@ exports.getMessagesForConversation = async (req, res) => {
       return res.status(400).json({ error: 'Conversation ID is required' });
     }
     
-    // 1. Ambil messages
+    // 1. Ambil messages (🆕 V23: Include files)
     const messages = await db.Message.findAll({
       where: { conversationId },
+      include: [{ 
+        model: db.File, 
+        as: 'files', 
+        required: false 
+      }],
       order: [['createdAt', 'ASC']], // Tampilkan dari yang terlama
     });
     

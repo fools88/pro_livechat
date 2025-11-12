@@ -4,6 +4,13 @@ on:
   workflow_dispatch: {}
   push:
     branches: [ main, 'feat/*', '**' ]
+  pull_request: {}
+
+# Allow this workflow to post comments on PRs and update pull request checks
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   analyze-dashboard:
@@ -18,6 +25,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Cache dashboard node_modules
+        uses: actions/cache@v4
+        with:
+          path: dashboard/node_modules
+          key: ${{ runner.os }}-dashboard-node-${{ hashFiles('dashboard/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-dashboard-node-
 
       - name: Install dashboard deps
         working-directory: dashboard
@@ -60,6 +75,20 @@ jobs:
             exit 1
           fi
 
+      - name: PR size enforcement & comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const sizes = fs.existsSync('sizes.txt') ? fs.readFileSync('sizes.txt','utf8') : '';
+            const m = sizes.match(/vendor_react[^\n]*gz:(\d+)/);
+            const gz = m ? parseInt(m[1],10) : 0;
+            const threshold = 400000;
+            const body = `📦 Bundle analysis summary\n\n- vendor_react gzipped size: ${gz} bytes\n- threshold: ${threshold} bytes\n\nDownload artifacts: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/artifacts`;
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.payload.pull_request.number, body });
+            if (gz > threshold) throw new Error(`vendor_react gz ${gz} > threshold ${threshold}`);
+
       - name: Inject gzip sizes into visualizer and extract vendor composition
         if: always()
         run: |
@@ -74,6 +103,18 @@ jobs:
           else
             echo "No visualizer HTML found to inject" >&2
           fi
+
+      - name: Run source-map-explorer reports
+        if: always()
+        working-directory: dashboard
+        run: |
+          echo "Running source-map-explorer for dashboard/dist/assets"
+          # Create tmp dir in repo root for reports
+          mkdir -p ../tmp || true
+          # Generate JSON reports for JS bundles (if source maps were produced)
+          npx source-map-explorer "dist/assets/*.js" --json > ../tmp/sourcemap-explorer.json || true
+          # Try to also produce an HTML visualization where supported
+          npx source-map-explorer "dist/assets/*.js" --html ../tmp/sourcemap-explorer.html || true
 
       - name: Remove source maps before upload
         if: always()
@@ -90,3 +131,5 @@ jobs:
             dashboard/dist
             **/*visualizer*.html
             sizes.txt
+            tmp/sourcemap-explorer.*
+            tmp/dashboard-visualizer-injected.html

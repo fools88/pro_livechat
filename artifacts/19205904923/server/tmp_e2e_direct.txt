@@ -1,0 +1,7 @@
+---E2E_DIRECT_START 2025-11-09T08:36:17.956Z
+2025-11-09T08:36:17.960Z [TEST] Admin token dibuat
+2025-11-09T08:36:18.009Z [TEST] Menggunakan website yang sudah ada: ec6ce1d6-a8f7-48b9-b8e8-223b7bf7b661 widgetKey=7372738a-a11e-460b-b42c-69281dfcfd5c
+2025-11-09T08:36:18.021Z [TEST] Widget token diterima (will use token for socket connection)
+2025-11-09T08:36:18.031Z [TEST] Admin socket connected, id=EayjDye37Iq0NZBpAAAC
+2025-11-09T08:36:18.034Z [TEST] Visitor connected, id=6CeVZ6ElUx_KePPdAAAD
+2025-11-09T08:36:18.046Z [TEST] Visitor connection_error "Otentikasi tidak valid."
