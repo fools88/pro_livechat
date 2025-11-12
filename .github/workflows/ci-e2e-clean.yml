@@ -129,8 +129,8 @@ jobs:
           echo "PGUSER=${PGUSER:-}" >> server/ci/out/db-env.txt || true
           echo "DB_USER=${DB_USER:-}" >> server/ci/out/db-env.txt || true
           # capture DB list via docker exec (force TCP and provide PGPASSWORD)
-          # Use container-local postgres OS user to avoid relying on PGPASSWORD parity
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc "su - postgres -c \"psql -c '\\l'\"" > server/ci/out/psql-list-postreset.txt 2>&1 || true
+          # Connect over TCP as the DB superuser account (prochatadmin) using PGPASSWORD
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 || true
 
       - name: Run DB migrations
         if: false
@@ -374,8 +374,8 @@ jobs:
           # list init scripts inside container and dump ci-initdb.sh if present
           if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d' > server/ci/out/initd-list.txt 2>&1; then :; else echo "initd list failed" >> server/ci/out/initd-list.txt; fi
           docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' > server/ci/out/ci-initdb-sh.txt 2>&1 || true
-          # attempt to read marker written by init script
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then cat /ci-out/ci-initdb-done; else echo "NO_MARKER"; fi' > server/ci/out/ci-initdb-done || true
+          # attempt to read marker written by init script (prefer host-side marker to avoid permission issues)
+          if [ -f server/ci/out/ci-initdb-done ]; then cat server/ci/out/ci-initdb-done > server/ci/out/ci-initdb-done || true; else echo "NO_MARKER" > server/ci/out/ci-initdb-done || true; fi
           # psql listing (force TCP)
           docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\l"' > server/ci/out/psql-list-early.txt 2>&1 || true
           # inspect db container if present
@@ -433,28 +433,31 @@ jobs:
           done
 
           echo "Creating required databases inside Postgres container (if missing)"
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc '
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc '
             set -e
-            # Run as the container postgres OS user so we don't depend on external PGPASSWORD
-            su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname = 'prochatadmin'\"" | grep -q 1 || su - postgres -c "psql -c \"CREATE DATABASE prochatadmin\""
-            su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname = 'prochat_db'\"" | grep -q 1 || su - postgres -c "psql -c \"CREATE DATABASE prochat_db\""
+            # Use TCP psql as the configured CI DB user (prochatadmin) to check/create databases
+            psql -h 127.0.0.1 -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochatadmin"
+            psql -h 127.0.0.1 -U prochatadmin -tAc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochat_db"
             echo "DBs ensured"
           '
 
           # CI defensive reset: drop and recreate prochat_db inside the Postgres container to guarantee a clean DB
           echo "Forcing drop/create of prochat_db inside Postgres container (CI-only)" > server/ci/out/db-reset-in-container.txt 2>&1 || true
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc '
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc '
             set -e
-            # drop if exists then recreate to ensure migrations run on a clean DB
-            su - postgres -c "psql -c \"DROP DATABASE IF EXISTS prochat_db\"" || true
-            su - postgres -c "psql -c \"CREATE DATABASE prochat_db\"" || true
+            # drop if exists then recreate to ensure migrations run on a clean DB (run as prochatadmin)
+            psql -h 127.0.0.1 -U prochatadmin -c "DROP DATABASE IF EXISTS prochat_db" || true
+            psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochat_db" || true
             echo "prochat_db dropped and recreated"
           ' >> server/ci/out/db-reset-in-container.txt 2>&1 || true
+
+          # Write host-side marker that DB reset step ran (avoid container write permission issues)
+          echo "host-marker: $(date -u) - db-reset-complete" > server/ci/out/ci-initdb-done || true
 
           echo "Verifying DB list"
           # use TCP host so psql doesn't try a Unix socket which may not be present
           # Use container postgres OS user for listing databases (avoids PGPASSWORD mismatch)
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc "su - postgres -c \"psql -c '\\l'\"" > server/ci/out/psql-list.txt 2>&1 || true
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list.txt 2>&1 || true
 
           echo "Capturing docker compose logs to infra-all.log and infra-db.log"
           docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
