@@ -1,6 +1,7 @@
 name: CI - Server tests + E2E (cleaned)
 
 on:
+  # Expose manual dispatch so we can trigger this workflow via GH UI or `gh workflow run`
   workflow_dispatch: {}
 
 jobs:
@@ -37,6 +38,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Wait for DB and Redis (shared)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          chmod +x ./scripts/ci/wait-for-ready.sh || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60 || true
 
       - name: Setup Python (for YAML validation)
         uses: actions/setup-python@v4
@@ -285,11 +292,11 @@ jobs:
         working-directory: server
         run: npm ci
 
-      - name: Wait for DB
+      - name: Wait for DB and Redis (shared)
         run: |
-          for i in `seq 1 30`; do
-            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
-          done
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          chmod +x ./scripts/ci/wait-for-ready.sh || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60
 
       - name: Run migrations
         working-directory: server
