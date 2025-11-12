@@ -146,6 +146,24 @@ jobs:
           node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug || echo "migrate failed or not required"
 
+      - name: Run idempotent seed check (seed_admin)
+        working-directory: server
+        env:
+          DB_USER: prochatadmin
+          DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_NAME: prochat_db
+          NODE_ENV: test
+        run: |
+          set -euo pipefail
+          echo "Running seed_admin (idempotent check) against prochat_db"
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${{ secrets.CI_DB_PASSWORD }}"
+          export PGUSER=${{ env.DB_USER }} || true
+          node tools/seed_admin.js 2>&1 | tee server/seed_admin.log || true
+
       - name: Start server (background)
         working-directory: server
         env:
@@ -359,6 +377,10 @@ jobs:
           echo "Using DATABASE_URL=${DATABASE_URL}" > server/migrate.env || true
           DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug 2>&1 | tee migrate.log || true
 
+          # Run idempotent seed check (seed_admin) to surface seeder issues early
+          echo "Running seed_admin (idempotent check) against prochat_db"
+          node tools/seed_admin.js 2>&1 | tee server/seed_admin.log || true
+
       - name: Upload migrate artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -366,6 +388,7 @@ jobs:
           name: migrate-output
           path: |
             server/migrate.log
+            server/seed_admin.log
             server/ci/out/*
 
   init-script-smoke:
