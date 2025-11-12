@@ -292,6 +292,10 @@ jobs:
           chmod -R 0777 server/ci/out || true
           bash server/tools/test_ci_initdb.sh
 
+      - name: Install server deps (for smoke job)
+        working-directory: server
+        run: npm ci
+
       - name: Upload smoke outputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -432,7 +436,7 @@ jobs:
             psql -h 127.0.0.1 -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochatadmin'\''" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochatadmin"
             psql -h 127.0.0.1 -U prochatadmin -tc "SELECT 1 FROM pg_database WHERE datname = '\''prochat_db'\''" | grep -q 1 || psql -h 127.0.0.1 -U prochatadmin -c "CREATE DATABASE prochat_db"
             echo "DBs ensured"
-          '
+          ' > server/ci/out/db-ensure.txt 2>&1 || true
 
           echo "Verifying DB list"
           # use TCP host so psql doesn't try a Unix socket which may not be present
@@ -451,6 +455,7 @@ jobs:
           path: |
             server/ci/out/wait-db.txt
             server/ci/out/psql-list.txt
+            server/ci/out/db-ensure.txt
             server/ci/out/infra-db-final.log
             server/ci/out/infra-all-final.log
             server/ci/out/compose-ps-final.txt
