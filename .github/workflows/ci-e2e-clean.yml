@@ -379,7 +379,10 @@ jobs:
 
           # Run idempotent seed check (seed_admin) to surface seeder issues early
           echo "Running seed_admin (idempotent check) against prochat_db"
-          node tools/seed_admin.js 2>&1 | tee server/seed_admin.log || true
+          # We're running with working-directory: server, so write the log to the repo-level
+          # server/seed_admin.log by tee'ing to ../server/seed_admin.log. Ensure parent dir exists.
+          mkdir -p ../server || true
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin.log || true
 
       - name: Upload migrate artifact
         if: always()
@@ -410,7 +413,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: init-smoke-out
-          path: server/ci/out/*
+          path: |
+            server/ci/out/*
+            server/server_ci.log
+            server_ci.log
+            server/logs/*.log
 
       - name: Install server deps (for smoke job)
         if: false
