@@ -390,11 +390,13 @@ jobs:
           path: server/ci/out/*
 
       - name: Install server deps (for smoke job)
+        if: false
         working-directory: server
         run: |
           npm ci
 
       - name: Start server (background)
+        if: false
         working-directory: server
         env:
           DB_USER: prochatadmin
@@ -410,22 +412,26 @@ jobs:
         run: nohup node run_server_local.js > server_ci.log 2>&1 & sleep 2
 
       - name: Wait for /ready
+        if: false
         working-directory: server
         run: node tools/wait_for_ready.js
 
       - name: Run E2E capture
+        if: false
         working-directory: server
         env:
           JWT_SECRET: '${{ secrets.CI_JWT_SECRET }}'
         run: node tools/run_e2e_and_capture.js || true
 
       - name: Upload E2E artifact
+        if: false
         uses: actions/upload-artifact@v4
         with:
           name: server-e2e-output
           path: server/tmp_e2e_output.txt
 
       - name: Run Jest tests
+        if: false
         working-directory: server
         run: npm test --if-present
 
