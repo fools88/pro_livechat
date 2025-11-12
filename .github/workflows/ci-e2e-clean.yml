@@ -133,6 +133,7 @@ jobs:
           docker compose -f docker-compose.ci.yml exec -T db sh -lc "su - postgres -c \"psql -c '\\l'\"" > server/ci/out/psql-list-postreset.txt 2>&1 || true
 
       - name: Run DB migrations
+        if: false
         working-directory: server
         env:
           DB_USER: ${{ env.DB_USER }}
