@@ -303,6 +303,19 @@ jobs:
           echo "--- ../tmp/self_ready.log (last 100) ---"; if [ -f ../tmp/self_ready.log ]; then tail -n 100 ../tmp/self_ready.log; else echo 'no self_ready.log'; fi
           echo "==== END DIAGNOSTICS ===="
 
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.CI_SLACK_WEBHOOK }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "SLACK_WEBHOOK not configured; skipping notification"
+            exit 0
+          fi
+          # Build a compact JSON payload with run link and repo
+          PAYLOAD=$(jq -n --arg repo "${GITHUB_REPOSITORY}" --arg run "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg title "CI E2E Failure: ${GITHUB_REPOSITORY}" '{text: ($title + "\n" + $run)}')
+          curl -s -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
+
   server-tests:
     name: Server unit/tests and migrations
     runs-on: ubuntu-latest
