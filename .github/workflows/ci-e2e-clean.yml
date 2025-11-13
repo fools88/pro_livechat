@@ -149,7 +149,15 @@ jobs:
           echo "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-}" >> server/ci/out/db-env.txt || true
           # capture DB list via docker exec (force TCP and provide PGPASSWORD)
           # Connect over TCP as the DB superuser account (prochatadmin) using PGPASSWORD
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="$PGPASSWORD" -e PGHOST="$PGHOST" -e PGPORT="$PGPORT" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 || true
+          # Retry a few times to avoid transient "service \"db\" is not running" docker exec timing issues
+          RETRY=0
+          MAX_RETRY=5
+          while [ $RETRY -lt $MAX_RETRY ]; do
+            docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="$PGPASSWORD" -e PGHOST="$PGHOST" -e PGPORT="$PGPORT" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 && break || true
+            RETRY=$((RETRY+1))
+            echo "psql-list attempt $RETRY failed; sleeping 2s and retrying..."
+            sleep 2
+          done
 
       - name: Run DB migrations
         if: false
