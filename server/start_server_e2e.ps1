@@ -1,6 +1,6 @@
 # Temporary helper to start server for E2E with proper env
 $env:DB_USER='prochatadmin'
-$env:DB_PASSWORD='prochatpassword123'
+$env:DB_PASSWORD='REPLACE_ME_DB_PASSWORD'
 $env:DB_NAME='prochat_db'
 $env:DB_HOST='127.0.0.1'
 $env:DB_PORT='5432'
@@ -15,3 +15,4 @@ try { New-Item -ItemType File -Path $log -Force | Out-Null } catch {}
 
 # Run node and redirect all output to the log file
 node 'server/run_server_local.js' *> $log
+

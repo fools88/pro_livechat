@@ -9,8 +9,8 @@ const minioClient = new Minio.Client({
   endPoint: 'localhost',
   port: 9000,
   useSSL: false,
-  accessKey: process.env.AWS_ACCESS_KEY_ID || 'minioadmin',
-  secretKey: process.env.AWS_SECRET_ACCESS_KEY || 'minioadmin123'
+  accessKey: process.env.AWS_ACCESS_KEY_ID || 'REPLACE_ME_MINIO_USER',
+  secretKey: process.env.AWS_SECRET_ACCESS_KEY || 'REPLACE_ME_MINIO_PASSWORD'
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'prochat-files';

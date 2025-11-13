@@ -62,7 +62,7 @@ jobs:
           DB_HOST=127.0.0.1 \
             DB_PORT=5432 \
             DB_USER=prochatadmin \
-            DB_PASSWORD=prochatpassword123 \
+            DB_PASSWORD=REPLACE_ME_DB_PASSWORD \
             DB_NAME=prochat_db \
             npx --yes sequelize-cli db:migrate \
               --config config/config.js \

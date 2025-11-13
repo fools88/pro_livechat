@@ -166,7 +166,7 @@ jobs:
         ports: ['5432:5432']
         env:
           POSTGRES_USER: prochatadmin
-          POSTGRES_PASSWORD: prochatpassword123
+          POSTGRES_PASSWORD: REPLACE_ME_DB_PASSWORD
           POSTGRES_DB: prochat_db
         options: >-
           --health-cmd "pg_isready -U prochatadmin" --health-interval 5s --health-timeout 2s --health-retries 10
@@ -199,7 +199,7 @@ jobs:
         working-directory: server
         env:
           DB_USER: prochatadmin
-          DB_PASSWORD: prochatpassword123
+          DB_PASSWORD: REPLACE_ME_DB_PASSWORD
           DB_NAME: prochat_db
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
@@ -209,7 +209,7 @@ jobs:
         working-directory: server
         env:
           DB_USER: prochatadmin
-          DB_PASSWORD: prochatpassword123
+          DB_PASSWORD: REPLACE_ME_DB_PASSWORD
           DB_NAME: prochat_db
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
@@ -247,7 +247,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DB_USER: prochatadmin
-      DB_PASSWORD: prochatpassword123
+      DB_PASSWORD: REPLACE_ME_DB_PASSWORD
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
       DB_NAME: prochat_db
