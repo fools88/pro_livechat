@@ -186,6 +186,8 @@ jobs:
           LOG_LEVEL: ${{ env.LOG_LEVEL }}
         run: |
           mkdir -p server/ci/out || true
+          # create placeholder log file so upload step always finds a file (avoid noop warning)
+          touch server/ci/out/ci_server.log || true
           nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
           sleep 5
           # capture basic diagnostics immediately after start
@@ -198,7 +200,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-server-log
-          path: server/ci/out/ci_server.log
+          # upload all files under server/ci/out so we capture tail, ps, netstat, etc.
+          path: server/ci/out/**
 
       - name: Wait for /ready
         working-directory: server
