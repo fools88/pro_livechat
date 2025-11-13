@@ -319,8 +319,8 @@ jobs:
 
       - name: Short delay before Create website (mitigate startup races)
         run: |
-          echo "Sleeping 8s to mitigate startup race before creating website..."
-          sleep 8
+          echo "Sleeping 12s to mitigate startup race before creating website..."
+          sleep 12
 
       - name: Create website (deterministic, retry)
         working-directory: server
@@ -368,17 +368,26 @@ jobs:
           SUCCESS=0
           while [ $TRY -le $MAX ]; do
             echo "Pre-E2E connectivity attempt $TRY/$MAX"
-            # try a POST (with dummy auth) to detect connection acceptance (401/403 acceptable)
-            if curl -v -X POST http://127.0.0.1:8081/api/websites/ -H 'Content-Type: application/json' -H 'Authorization: Bearer invalidtoken' -d '{}' --max-time 5 -o /dev/null 2> server/ci/out/curl_pre_e2e_attempt_${TRY}.txt; then
-              echo "curl connected (exit 0) on attempt $TRY"; SUCCESS=1; break
-            else
-              # if curl returned non-zero, check captured verbose output for connection refused
-              grep -E "Connection refused|failed to connect" server/ci/out/curl_pre_e2e_attempt_${TRY}.txt >/dev/null 2>&1 || true
-              if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss_attempt_${TRY}.txt || true; else netstat -tlnp > server/ci/out/netstat_attempt_${TRY}.txt || true; fi
-              echo "Attempt $TRY failed; sleeping before retry"
-              TRY=$((TRY+1))
-              sleep 3
+            # try a POST (with dummy auth) to detect connection acceptance
+            # capture verbose curl output for diagnostics
+            curl -v -X POST http://127.0.0.1:8081/api/websites/ -H 'Content-Type: application/json' -H 'Authorization: Bearer invalidtoken' -d '{}' --max-time 5 -o /dev/null 2> server/ci/out/curl_pre_e2e_attempt_${TRY}.txt || true
+            # If curl wrote an HTTP response line with 401 or 403, treat as success (server accepted TCP)
+            if grep -E "HTTP/1\.[01] [ ]*(401|403)" server/ci/out/curl_pre_e2e_attempt_${TRY}.txt >/dev/null 2>&1; then
+              echo "Pre-E2E: server returned 401/403 on attempt $TRY -> treat as connected"; SUCCESS=1; break
             fi
+            # If curl exit was success (non-empty output but not 401/403), accept it
+            if [ -s server/ci/out/curl_pre_e2e_attempt_${TRY}.txt ] && ! grep -E "Connection refused|failed to connect" server/ci/out/curl_pre_e2e_attempt_${TRY}.txt >/dev/null 2>&1; then
+              echo "Pre-E2E: curl returned output (non-connection failure) on attempt $TRY -> treat as connected"; SUCCESS=1; break
+            fi
+            # Fallback: quick TCP probe using bash /dev/tcp to detect listening socket
+            if timeout 1 bash -c "</dev/tcp/127.0.0.1/8081" >/dev/null 2>&1; then
+              echo "Pre-E2E: TCP probe succeeded on attempt $TRY"; SUCCESS=1; break
+            fi
+            # Capture socket/listener state for this attempt
+            if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss_attempt_${TRY}.txt || true; else netstat -tlnp > server/ci/out/netstat_attempt_${TRY}.txt || true; fi
+            echo "Attempt $TRY failed; sleeping before retry"
+            TRY=$((TRY+1))
+            sleep 3
           done
           if [ $SUCCESS -ne 1 ]; then
             echo "ERROR: Pre-E2E connectivity check failed after $MAX attempts" >&2
