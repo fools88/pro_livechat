@@ -209,6 +209,32 @@ jobs:
           CHECK_URL: http://127.0.0.1:8081/ready
         run: node tools/wait_for_ready.js
 
+      - name: "Smoke - basic health & MinIO ready check"
+        working-directory: server
+        run: |
+          set -euo pipefail
+          echo "== Smoke check: server /ready =="
+          if curl -fsS --max-time 5 http://127.0.0.1:8081/ready >/dev/null 2>&1; then
+            echo "Server /ready OK"
+          else
+            echo "WARNING: server /ready returned non-200 or timed out"
+            # Continue; wait_for_ready.js should have caught readiness earlier
+          fi
+
+          echo "== Smoke check: MinIO health (if running) =="
+          # Try MinIO health endpoint with retries; do not fail the job if MinIO not present
+          success=1
+          for i in `seq 1 20`; do
+            if curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null 2>&1; then
+              echo "MinIO healthy (attempt $i)"; success=0; break
+            fi
+            echo "MinIO not ready yet (attempt $i), sleeping 3s..."
+            sleep 3
+          done
+          if [ $success -ne 0 ]; then
+            echo "WARNING: MinIO health endpoint not available after retries; continuing without failing CI"
+          fi
+
       - name: Create website (deterministic)
         working-directory: server
         env:
