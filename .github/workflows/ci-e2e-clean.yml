@@ -39,6 +39,13 @@ jobs:
       MINIO_SECRET_KEY: '${{ secrets.CI_MINIO_ROOT_PASSWORD }}'
       MINIO_ENDPOINT: 'http://127.0.0.1:9000'
       MINIO_REGION: 'us-east-1'
+      # Map into AWS/S3 names the app expects
+      S3_ENDPOINT: 'http://127.0.0.1:9000'
+      S3_REGION: 'us-east-1'
+      AWS_ACCESS_KEY_ID: '${{ secrets.CI_MINIO_ROOT_USER }}'
+      AWS_SECRET_ACCESS_KEY: '${{ secrets.CI_MINIO_ROOT_PASSWORD }}'
+      # Optional: set a CI test bucket so s3Required becomes true when testing strict MinIO
+      S3_BUCKET_NAME: 'prochat-ci'
       # Toggle to require MinIO to be healthy; set to 'true' in secrets to enable strict checking
       REQUIRE_STRICT_MINIO: '${{ secrets.CI_REQUIRE_MINIO }}'
       LOG_LEVEL: debug
