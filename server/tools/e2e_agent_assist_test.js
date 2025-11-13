@@ -159,6 +159,14 @@ async function requestWidgetToken(serverUrl, website, attempts = 3, delayMs = 50
   writeDirect('[TEST] Admin token dibuat');
 
   // 2. Buat website lewat API
+    // Ensure server is ready before attempting API calls
+    const ready = await waitForServer(SERVER, 60000);
+    if (!ready) {
+      logger.error('[TEST] Server tidak siap setelah timeout; abort E2E');
+      writeDirect('[TEST] Server tidak siap setelah timeout; abort E2E');
+      process.exit(2);
+    }
+
     try {
       let res = await fetchWithRetry(`${SERVER}/api/websites/`, {
         method: 'POST',

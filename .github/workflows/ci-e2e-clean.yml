@@ -326,6 +326,11 @@ jobs:
           SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: node tools/ci_create_website.js
 
+      - name: Short delay before E2E (mitigate startup races)
+        run: |
+          echo "Sleeping 8s to mitigate startup race..."
+          sleep 8
+
       - name: Assert widget token issuance
         working-directory: server
         env:
