@@ -1,4 +1,4 @@
-// tools/seed_admin.js
+﻿// tools/seed_admin.js
 // Script untuk membuat admin user untuk testing lokal
 
 require('dotenv').config();
@@ -47,7 +47,7 @@ async function seedAdmin() {
     }
 
     console.log('[SEED] Membuat admin user...');
-    console.log('[SEED] ✅ Admin berhasil dibuat!');
+    console.log('[SEED] âœ… Admin berhasil dibuat!');
     console.log('[SEED] Username:', admin.username);
     console.log('[SEED] Email:', admin.email);
 
@@ -65,9 +65,10 @@ async function seedAdmin() {
 
     process.exit(0);
   } catch (err) {
-    console.error('[SEED] ❌ Error:', err.message);
+    console.error('[SEED] âŒ Error:', err.message);
     process.exit(1);
   }
 }
 
 seedAdmin();
+
