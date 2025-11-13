@@ -20,7 +20,7 @@
 - Port: `5432`
 - Database: `prochat_db`
 - Username: `prochatadmin`
-- Password: `prochatpassword123`
+- Password: `REPLACE_ME_DB_PASSWORD`
 
 3. Klik **Save**
 
@@ -60,7 +60,7 @@ Servers
    - Port: `5432`
    - Database: `prochat_db`
    - Username: `prochatadmin`
-   - Password: `prochatpassword123`
+   - Password: `REPLACE_ME_DB_PASSWORD`
 5. Test Connection → Finish
 
 ### Lihat Data
@@ -191,7 +191,7 @@ ORDER BY "createdAt" DESC;
 2. Add Connection:
    - Host: `localhost`
    - Username: `prochatadmin`
-   - Password: `prochatpassword123`
+   - Password: `REPLACE_ME_DB_PASSWORD`
    - Port: `5432`
    - Database: `prochat_db`
 
@@ -343,3 +343,4 @@ npm run migrate
 - **In VS Code:** PostgreSQL extension
 
 **Setelah connect, Anda bisa lihat semua data dalam format tabel yang mudah dibaca!** 📊
+

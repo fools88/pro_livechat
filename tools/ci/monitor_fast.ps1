@@ -21,7 +21,8 @@ while ($attempt -lt $MaxPollAttempts) {
   $attempt++
   Write-Output ("[monitor] attempt {0}/{1}: listing recent runs... (interval {2}s)" -f $attempt, $MaxPollAttempts, $interval)
 
-  $runsJson = & gh run list --workflow=$Workflow --branch $Branch --json number,conclusion,createdAt -L 20 2>$null
+  # ask for databaseId too so we can query artifact metadata if needed
+  $runsJson = & gh run list --workflow=$Workflow --branch $Branch --json number,conclusion,createdAt,databaseId -L 20 2>$null
   try { $runs = $runsJson | ConvertFrom-Json } catch { $runs = @() }
 
   # Normalize to array
@@ -55,15 +56,59 @@ while ($attempt -lt $MaxPollAttempts) {
           exit 0
         }
 
-        # run failed -> download artifacts
+        # run failed -> download artifacts robustly
         $outdir = "artifacts/run-$runNumber"
         New-Item -ItemType Directory -Path $outdir -Force | Out-Null
-        & gh run download $runNumber --dir $outdir --limit 10
-        if ($LASTEXITCODE -ne 0) {
-          Write-Output ("[monitor] limited download failed (exit {0}), retrying full download" -f $LASTEXITCODE)
-          & gh run download $runNumber --dir $outdir
+
+        # try gh run download first (works for many versions)
+        & gh run download $runNumber --dir $outdir 2>$null
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output ("[monitor] artifacts downloaded to {0} via gh run download" -f $outdir)
+          exit 1
         }
-        Write-Output ("[monitor] artifacts downloaded to {0}" -f $outdir)
+
+        Write-Output "[monitor] gh run download failed or not supported - falling back to API artifact download"
+
+        # determine repository name (owner/repo)
+        try {
+          $repo = & gh repo view --json nameWithOwner --jq .nameWithOwner 2>$null
+          $repo = $repo.Trim()
+        } catch { $repo = $null }
+
+        if (-not $repo) {
+          Write-Output "[monitor] cannot determine repo name via 'gh repo view' - aborting artifact fallback"
+          exit 1
+        }
+
+        # Use the workflow run databaseId (if present) to list artifacts via the REST API
+        $runDbId = $candidate.databaseId
+        if (-not $runDbId) { $runDbId = $runNumber }
+
+        $artifactsJson = & gh api repos/$repo/actions/runs/$runDbId/artifacts 2>$null
+        try { $artifacts = $artifactsJson | ConvertFrom-Json } catch { $artifacts = $null }
+
+        if (-not $artifacts -or -not $artifacts.artifacts) {
+          Write-Output "[monitor] no artifacts metadata found for run $runNumber"
+          exit 1
+        }
+
+        $token = (& gh auth token).Trim()
+        foreach ($a in $artifacts.artifacts) {
+          $name = $a.name
+          $url = $a.archive_download_url
+          if (-not $url) { continue }
+          $zipPath = Join-Path $outdir ("{0}.zip" -f $name)
+          Write-Output ("[monitor] downloading artifact '{0}' ({1} bytes) to {2}" -f $name, $a.size_in_bytes, $zipPath)
+          try {
+            Invoke-WebRequest -Uri $url -Headers @{ Authorization = "token $token"; Accept = 'application/octet-stream' } -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+            # Extract
+            try { Expand-Archive -Path $zipPath -DestinationPath $outdir -Force -ErrorAction Stop } catch { Write-Output ("[monitor] warning: failed to expand {0}: {1}" -f $zipPath, $_.Exception.Message) }
+          } catch {
+            Write-Output ("[monitor] failed to download artifact {0}: {1}" -f $name, $_.Exception.Message)
+          }
+        }
+
+        Write-Output ("[monitor] artifacts downloaded/extracted to {0}" -f $outdir)
         exit 1
       }
 

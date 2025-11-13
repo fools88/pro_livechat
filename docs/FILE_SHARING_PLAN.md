@@ -166,8 +166,8 @@ docker run -d \
   -p 9000:9000 \
   -p 9001:9001 \
   --name prochat-minio \
-  -e "MINIO_ROOT_USER=minioadmin" \
-  -e "MINIO_ROOT_PASSWORD=minioadmin123" \
+  -e "MINIO_ROOT_USER=REPLACE_ME_MINIO_USER" \
+  -e "MINIO_ROOT_PASSWORD=REPLACE_ME_MINIO_PASSWORD" \
   -v c:/minio-data:/data \
   minio/minio server /data --console-address ":9001"
 
@@ -431,3 +431,4 @@ Kita mulai dari mana:
 - **C)** Database migration dulu (schema)
 
 Atau mau saya langsung implement semua step-by-step? 🚀
+

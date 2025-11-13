@@ -184,6 +184,19 @@ Debug files
 - `tmp/ready_checks.log` — catatan readiness yang berhasil
 - `server/server-ci.log` — output server saat dijalankan di background
 
+Developer CI helper scripts
+---------------------------
+We moved the ad-hoc CI helper scripts out of `tmp/` into `tools/ci/` to make them easier to find and maintain. Use the scripts under `tools/ci/` (for example `tools/ci/monitor_fast.ps1` and `tools/ci/wait_and_download_run.ps1`) when interacting with the GitHub Actions runs and artifacts locally. The `tmp/` folder is still used for runtime artifacts (logs and markers), but helper tooling lives in `tools/ci/`.
+
+Example (PowerShell):
+
+```powershell
+# monitor the latest run for the current branch and download artifacts on failure
+.
+.
+``` 
+
+
 Apa yang sudah kita kembangkan
 - Mode MOCK untuk AI dan vector agar E2E dapat berjalan tanpa kredensial eksternal.
 - Endpoint `/ready`, `/health`, dan `/metrics` untuk observability dan readiness.

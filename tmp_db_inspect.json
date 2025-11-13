@@ -1,4 +1,4 @@
-﻿[
+[
     {
         "Id": "a82cbe4d85691a2d54b4b43d6d588b059d5d3722c73c01a2acdc27f7e845e3ff",
         "Created": "2025-11-11T07:56:35.789262854Z",
@@ -194,7 +194,7 @@
             "StdinOnce": false,
             "Env": [
                 "POSTGRES_USER=prochatadmin",
-                "POSTGRES_PASSWORD=prochatpassword123",
+                "POSTGRES_PASSWORD=REPLACE_ME_DB_PASSWORD",
                 "POSTGRES_DB=prochatadmin",
                 "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                 "GOSU_VERSION=1.19",
@@ -298,4 +298,5 @@
         }
     }
 ]
+
 

@@ -17,7 +17,7 @@ require('dotenv').config();
 
 const baseConfig = {
   username: process.env.DB_USER || 'prochatadmin',
-  password: process.env.DB_PASSWORD || 'prochatpassword123',
+  password: process.env.DB_PASSWORD || 'REPLACE_ME_DB_PASSWORD',
   database: process.env.DB_NAME || 'prochat_db',
   host: process.env.DB_HOST || '127.0.0.1',
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 5432,
@@ -84,3 +84,4 @@ module.exports = {
     }
   }
 };
+

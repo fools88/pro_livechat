@@ -4,8 +4,8 @@ const { S3Client, CreateBucketCommand } = require('@aws-sdk/client-s3');
 
 const endpoint = process.env.S3_ENDPOINT || 'http://localhost:9000';
 const region = process.env.S3_REGION || 'us-east-1';
-const accessKey = process.env.AWS_ACCESS_KEY_ID || 'minioadmin';
-const secretKey = process.env.AWS_SECRET_ACCESS_KEY || 'minioadmin123';
+const accessKey = process.env.AWS_ACCESS_KEY_ID || 'REPLACE_ME_MINIO_USER';
+const secretKey = process.env.AWS_SECRET_ACCESS_KEY || 'REPLACE_ME_MINIO_PASSWORD';
 const bucket = process.env.S3_BUCKET_NAME || 'prochat-files';
 
 const client = new S3Client({ region, endpoint, forcePathStyle: true, credentials: { accessKeyId: accessKey, secretAccessKey: secretKey } });
@@ -21,3 +21,4 @@ const client = new S3Client({ region, endpoint, forcePathStyle: true, credential
     process.exit(2);
   }
 })();
+
