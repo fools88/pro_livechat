@@ -317,19 +317,36 @@ jobs:
             fi
           fi
 
-      - name: Create website (deterministic)
+      - name: Short delay before Create website (mitigate startup races)
+        run: |
+          echo "Sleeping 8s to mitigate startup race before creating website..."
+          sleep 8
+
+      - name: Create website (deterministic, retry)
         working-directory: server
         env:
           JWT_SECRET: ${{ env.JWT_SECRET }}
           SERVER_URL: http://127.0.0.1:8081
           SITE_NAME: CI E2E Site
           SITE_URL: "https://e2e.test-${{ github.run_id }}"
-        run: node tools/ci_create_website.js
-
-      - name: Short delay before E2E (mitigate startup races)
         run: |
-          echo "Sleeping 8s to mitigate startup race..."
-          sleep 8
+          set -euo pipefail
+          MAX=5
+          TRY=1
+          while [ $TRY -le $MAX ]; do
+            echo "Create website attempt $TRY/$MAX"
+            node tools/ci_create_website.js && break || true
+            echo "Create website failed on attempt $TRY; dumping last server log tail for debugging"
+            tail -n 200 server/ci/out/ci_server.log || true
+            TRY=$((TRY+1))
+            echo "Sleeping $((3 * TRY))s before next attempt"
+            sleep $((3 * TRY))
+          done
+          if [ $TRY -gt $MAX ]; then
+            echo "ERROR: Create website failed after $MAX attempts"
+            tail -n 400 server/ci/out/ci_server.log || true
+            exit 1
+          fi
 
       - name: Assert widget token issuance
         working-directory: server
