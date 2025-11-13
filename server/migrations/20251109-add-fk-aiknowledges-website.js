@@ -4,6 +4,12 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     // Tambahkan FK websiteId -> Websites.id jika belum ada.
     try {
+      // Skip if constraint already exists (idempotent)
+      const [exists] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_aiknowledges_website' LIMIT 1;");
+      if (Array.isArray(exists) && exists.length > 0) {
+        console.log('fk_aiknowledges_website already exists, skipping');
+        return;
+      }
       await queryInterface.addConstraint('AIKnowledges', {
         fields: ['websiteId'],
         type: 'foreign key',

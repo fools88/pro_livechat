@@ -13,17 +13,22 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
     });
     try {
-      // Only add FK if referenced table exists
+      // Only add FK if referenced table exists and constraint not already present
       const [res] = await queryInterface.sequelize.query(`SELECT to_regclass('public."Websites"') as reg;`);
       const tableExists = Array.isArray(res) && res.length > 0 && res[0].reg !== null;
       if (tableExists) {
-        await queryInterface.addConstraint('AIKnowledges', {
-          fields: ['websiteId'],
-          type: 'foreign key',
-          name: 'fk_aiknowledges_website',
-          references: { table: 'Websites', field: 'id' },
-          onDelete: 'CASCADE'
-        });
+        const [exists] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_aiknowledges_website' LIMIT 1;");
+        if (Array.isArray(exists) && exists.length > 0) {
+          console.log('fk_aiknowledges_website already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('AIKnowledges', {
+            fields: ['websiteId'],
+            type: 'foreign key',
+            name: 'fk_aiknowledges_website',
+            references: { table: 'Websites', field: 'id' },
+            onDelete: 'CASCADE'
+          });
+        }
       } else {
         // eslint-disable-next-line no-console
         console.warn('Skipping fk_aiknowledges_website: referenced table Websites not present yet');
@@ -38,13 +43,18 @@ module.exports = {
       const [res2] = await queryInterface.sequelize.query(`SELECT to_regclass('public."KnowledgeCategories"') as reg;`);
       const kcExists = Array.isArray(res2) && res2.length > 0 && res2[0].reg !== null;
       if (kcExists) {
-        await queryInterface.addConstraint('AIKnowledges', {
-          fields: ['categoryId'],
-          type: 'foreign key',
-          name: 'fk_aiknowledges_category',
-          references: { table: 'KnowledgeCategories', field: 'id' },
-          onDelete: 'SET NULL'
-        });
+        const [exists2] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_aiknowledges_category' LIMIT 1;");
+        if (Array.isArray(exists2) && exists2.length > 0) {
+          console.log('fk_aiknowledges_category already exists, skipping');
+        } else {
+          await queryInterface.addConstraint('AIKnowledges', {
+            fields: ['categoryId'],
+            type: 'foreign key',
+            name: 'fk_aiknowledges_category',
+            references: { table: 'KnowledgeCategories', field: 'id' },
+            onDelete: 'SET NULL'
+          });
+        }
       } else {
         // eslint-disable-next-line no-console
         console.warn('Skipping fk_aiknowledges_category: referenced table KnowledgeCategories not present yet');

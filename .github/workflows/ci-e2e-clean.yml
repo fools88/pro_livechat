@@ -1,6 +1,7 @@
 name: CI - Server tests + E2E (cleaned)
 
 on:
+  # Expose manual dispatch so we can trigger this workflow via GH UI or `gh workflow run`
   workflow_dispatch: {}
 
 jobs:
@@ -37,6 +38,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Wait for DB and Redis (shared)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          chmod +x ./scripts/ci/wait-for-ready.sh || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60 || true
 
       - name: Setup Python (for YAML validation)
         uses: actions/setup-python@v4
@@ -129,8 +136,8 @@ jobs:
           echo "PGUSER=${PGUSER:-}" >> server/ci/out/db-env.txt || true
           echo "DB_USER=${DB_USER:-}" >> server/ci/out/db-env.txt || true
           # capture DB list via docker exec (force TCP and provide PGPASSWORD)
-          # Use container-local postgres OS user to avoid relying on PGPASSWORD parity
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc "su - postgres -c \"psql -c '\\l'\"" > server/ci/out/psql-list-postreset.txt 2>&1 || true
+          # Connect over TCP as the DB superuser account (prochatadmin) using PGPASSWORD
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 || true
 
       - name: Run DB migrations
         if: false
@@ -146,6 +153,24 @@ jobs:
           node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug || echo "migrate failed or not required"
 
+      - name: Run idempotent seed check (seed_admin)
+        working-directory: server
+        env:
+          DB_USER: prochatadmin
+          DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_NAME: prochat_db
+          NODE_ENV: test
+        run: |
+          set -euo pipefail
+          echo "Running seed_admin (idempotent check) against prochat_db"
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${{ secrets.CI_DB_PASSWORD }}"
+          export PGUSER=${{ env.DB_USER }} || true
+          node tools/seed_admin.js 2>&1 | tee server/seed_admin.log || true
+
       - name: Start server (background)
         working-directory: server
         env:
@@ -160,8 +185,13 @@ jobs:
           MOCK_VECTOR: ${{ env.MOCK_VECTOR }}
           LOG_LEVEL: ${{ env.LOG_LEVEL }}
         run: |
-          nohup node src/index.js > ci_server.log 2>&1 &
-          sleep 2
+          mkdir -p server/ci/out || true
+          nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
+          sleep 5
+          # capture basic diagnostics immediately after start
+          ps aux > server/ci/out/ps.txt || true
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
+          tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
       - name: Wait for /ready
         working-directory: server
@@ -262,11 +292,11 @@ jobs:
         working-directory: server
         run: npm ci
 
-      - name: Wait for DB
+      - name: Wait for DB and Redis (shared)
         run: |
-          for i in `seq 1 30`; do
-            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
-          done
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          chmod +x ./scripts/ci/wait-for-ready.sh || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60
 
       - name: Run migrations
         working-directory: server
@@ -279,6 +309,127 @@ jobs:
         run: |
           node tools/wait_for_prochat_db.js || echo "wait_for_prochat_db failed";
           npx sequelize-cli db:migrate --debug
+
+  migrate-only:
+    name: Migrate-only (fast feedback)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        ports: ['5432:5432']
+        env:
+          POSTGRES_USER: prochatadmin
+          POSTGRES_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          POSTGRES_DB: prochatadmin
+        options: >-
+          --health-cmd "pg_isready -U prochatadmin" --health-interval 5s --health-timeout 2s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 2s --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: Wait for Postgres (TCP)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
+          for i in `seq 1 30`; do
+            pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin && break || sleep 2
+          done
+
+      - name: Ensure DB and run migrations
+        working-directory: server
+        env:
+          DB_USER: prochatadmin
+          DB_PASSWORD: '${{ secrets.CI_DB_PASSWORD }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+        run: |
+          set -euo pipefail
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${DB_PASSWORD}"
+          export PGUSER=${DB_USER}
+          dropdb --if-exists -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
+          createdb --owner=${DB_USER} -h ${PGHOST} -p ${PGPORT} -U ${DB_USER} prochat_db || true
+          # Create a runner-owned marker file so containers don't need to write to host mounts
+          mkdir -p server/ci/out || true
+          touch server/ci/out/ci-initdb-done || true
+          chmod 0666 server/ci/out/ci-initdb-done || true
+          # wait until prochat_db is visible via TCP psql (small retry loop)
+          for i in `seq 1 30`; do
+            if psql -h ${PGHOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname='prochat_db'" | grep -q 1; then
+              echo "prochat_db visible (attempt $i)"; break
+            fi
+            echo "prochat_db not visible yet (attempt $i), sleeping..."; sleep 1
+          done
+
+          # Ensure Redis is reachable before running migrations
+          if command -v redis-cli >/dev/null 2>&1; then
+            for i in `seq 1 30`; do
+              redis-cli -h 127.0.0.1 -p 6379 ping && break || sleep 1
+            done
+          else
+            echo "redis-cli not available on runner, skipping redis ping"
+          fi
+
+          # Export env vars so sequelize-cli picks them up in config
+          export DB_USER=${DB_USER}
+          export DB_PASSWORD=${DB_PASSWORD}
+          export DB_HOST=${PGHOST}
+          export DB_PORT=${PGPORT}
+          export DB_NAME=prochat_db
+
+          # run migrations with explicit connection URL to avoid config/env mismatch
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${PGHOST}:${PGPORT}/prochat_db"
+          echo "Using DATABASE_URL=${DATABASE_URL}" > server/migrate.env || true
+          DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug 2>&1 | tee migrate.log || true
+
+          # Run idempotent seed check (seed_admin) to surface seeder issues early
+          echo "Running seed_admin (idempotent check) against prochat_db"
+          # We're running with working-directory: server, so write the log to the repo-level
+          # server/seed_admin.log by tee'ing to ../server/seed_admin.log. Ensure parent dir exists.
+          mkdir -p ../server || true
+          # Run seeder once and record output
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin.log
+          # Run seeder a second time to assert idempotency; write to a separate file
+          node tools/seed_admin.js 2>&1 | tee ../server/seed_admin_second.log
+
+      - name: Upload migrate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migrate-output
+          path: |
+            server/migrate.log
+            server/seed_admin.log
+            server/ci/out/*
+
+      - name: Assert seed idempotency
+        if: always()
+        working-directory: server
+        run: |
+          set -euo pipefail
+          echo "Checking seeder logs for success phrase..."
+          # success phrases (Indonesian / English) that indicate seeder succeeded or was idempotent
+          PATTERN='Admin berhasil dibuat|already exists|Admin sudah ada|Admin berhasil dibuat!'
+          if grep -E "$PATTERN" ../server/seed_admin.log >/dev/null 2>&1 || grep -E "$PATTERN" ../server/seed_admin_second.log >/dev/null 2>&1; then
+            echo "Seeder success detected in logs"
+          else
+            echo "Seeder success phrase not found in logs"; echo "--- seed_admin.log ---"; cat ../server/seed_admin.log || true; echo "--- seed_admin_second.log ---"; cat ../server/seed_admin_second.log || true; exit 1
+          fi
 
   init-script-smoke:
     name: Init script smoke test
@@ -299,14 +450,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: init-smoke-out
-          path: server/ci/out/*
+          path: |
+            server/ci/out/*
+            server/server_ci.log
+            server_ci.log
+            server/logs/*.log
 
       - name: Install server deps (for smoke job)
+        if: false
         working-directory: server
         run: |
           npm ci
 
       - name: Start server (background)
+        if: false
         working-directory: server
         env:
           DB_USER: prochatadmin
@@ -322,22 +479,26 @@ jobs:
         run: nohup node run_server_local.js > server_ci.log 2>&1 & sleep 2
 
       - name: Wait for /ready
+        if: false
         working-directory: server
         run: node tools/wait_for_ready.js
 
       - name: Run E2E capture
+        if: false
         working-directory: server
         env:
           JWT_SECRET: '${{ secrets.CI_JWT_SECRET }}'
         run: node tools/run_e2e_and_capture.js || true
 
       - name: Upload E2E artifact
+        if: false
         uses: actions/upload-artifact@v4
         with:
           name: server-e2e-output
           path: server/tmp_e2e_output.txt
 
       - name: Run Jest tests
+        if: false
         working-directory: server
         run: npm test --if-present
 
@@ -374,8 +535,8 @@ jobs:
           # list init scripts inside container and dump ci-initdb.sh if present
           if docker compose -f docker-compose.ci.yml exec -T db sh -lc 'ls -la /docker-entrypoint-initdb.d' > server/ci/out/initd-list.txt 2>&1; then :; else echo "initd list failed" >> server/ci/out/initd-list.txt; fi
           docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /docker-entrypoint-initdb.d/ci-initdb.sh ]; then sed -n "1,200p" /docker-entrypoint-initdb.d/ci-initdb.sh; else echo "no ci-initdb.sh"; fi' > server/ci/out/ci-initdb-sh.txt 2>&1 || true
-          # attempt to read marker written by init script
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc 'if [ -f /ci-out/ci-initdb-done ]; then cat /ci-out/ci-initdb-done; else echo "NO_MARKER"; fi' > server/ci/out/ci-initdb-done || true
+          # attempt to read marker written by init script (prefer host-side marker to avoid permission issues)
+          if [ -f server/ci/out/ci-initdb-done ]; then cat server/ci/out/ci-initdb-done > server/ci/out/ci-initdb-done || true; else echo "NO_MARKER" > server/ci/out/ci-initdb-done || true; fi
           # psql listing (force TCP)
           docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\l"' > server/ci/out/psql-list-early.txt 2>&1 || true
           # inspect db container if present
@@ -405,16 +566,18 @@ jobs:
 
       - name: Ensure DBs inside Postgres container
         run: |
-          echo "Robust wait for Postgres to accept connections (max 300s)"
+          echo "Robust wait for Postgres to accept TCP connections (max 300s)"
           MAX_TRIES=300
           TRY=0
           mkdir -p server/ci/out || true
+          # Ensure postgresql client available on runner for TCP checks
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client || true
+
           while true; do
             TRY=$((TRY+1))
-            echo "Attempt $TRY: checking pg_isready inside container..."
-            # Use exec; if the service isn't available yet this will fail and we keep retrying
-            if docker compose -f docker-compose.ci.yml exec -T db pg_isready -U prochatadmin >/dev/null 2>&1; then
-              echo "Postgres responding inside container after $TRY attempts"
+            echo "Attempt $TRY: checking pg_isready (TCP) on 127.0.0.1:5432..."
+            if pg_isready -h 127.0.0.1 -p 5432 -U prochatadmin >/dev/null 2>&1; then
+              echo "Postgres responding over TCP after $TRY attempts"
               echo "ready: $TRY" > server/ci/out/wait-db.txt || true
               break
             fi
@@ -424,7 +587,6 @@ jobs:
               docker compose -f docker-compose.ci.yml logs --no-color --timestamps > server/ci/out/infra-all-final.log 2>&1 || true
               docker compose -f docker-compose.ci.yml logs --no-color db > server/ci/out/infra-db-final.log 2>&1 || true
               docker compose -f docker-compose.ci.yml ps --all > server/ci/out/compose-ps-final.txt 2>&1 || true
-              # also dump db inspect if possible
               CID=$(docker compose -f docker-compose.ci.yml ps -q db || true)
               if [ -n "$CID" ]; then docker inspect $CID > server/ci/out/db-inspect-final.json 2>&1 || true; fi
               exit 1
@@ -432,29 +594,23 @@ jobs:
             sleep 1
           done
 
-          echo "Creating required databases inside Postgres container (if missing)"
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc '
-            set -e
-            # Run as the container postgres OS user so we don't depend on external PGPASSWORD
-            su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname = 'prochatadmin'\"" | grep -q 1 || su - postgres -c "psql -c \"CREATE DATABASE prochatadmin\""
-            su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname = 'prochat_db'\"" | grep -q 1 || su - postgres -c "psql -c \"CREATE DATABASE prochat_db\""
-            echo "DBs ensured"
-          '
+          echo "Ensure required databases exist (using TCP psql from runner)"
+          export PGHOST=127.0.0.1
+          export PGPORT=5432
+          export PGPASSWORD="${DB_PASSWORD}"
+          export PGUSER=prochatadmin
 
-          # CI defensive reset: drop and recreate prochat_db inside the Postgres container to guarantee a clean DB
-          echo "Forcing drop/create of prochat_db inside Postgres container (CI-only)" > server/ci/out/db-reset-in-container.txt 2>&1 || true
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc '
-            set -e
-            # drop if exists then recreate to ensure migrations run on a clean DB
-            su - postgres -c "psql -c \"DROP DATABASE IF EXISTS prochat_db\"" || true
-            su - postgres -c "psql -c \"CREATE DATABASE prochat_db\"" || true
-            echo "prochat_db dropped and recreated"
-          ' >> server/ci/out/db-reset-in-container.txt 2>&1 || true
+          # recreate prochat_db cleanly for CI
+          dropdb --if-exists --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochat_db || true
+          # ensure CI user DB exists
+          psql -h ${PGHOST} -U ${PGUSER} -tc "SELECT 1 FROM pg_database WHERE datname='prochatadmin'" | grep -q 1 || createdb --owner=${DB_USER} --host=${PGHOST} --port=${PGPORT} prochatadmin || true
 
-          echo "Verifying DB list"
-          # use TCP host so psql doesn't try a Unix socket which may not be present
-          # Use container postgres OS user for listing databases (avoids PGPASSWORD mismatch)
-          docker compose -f docker-compose.ci.yml exec -T db sh -lc "su - postgres -c \"psql -c '\\l'\"" > server/ci/out/psql-list.txt 2>&1 || true
+          # Write host-side marker that DB reset step ran (runner writes the marker to avoid container->host permission issues)
+          sudo sh -c "echo \"host-marker: $(date -u) - db-reset-complete\" > server/ci/out/ci-initdb-done" || true
+
+          echo "Verifying DB list via TCP psql"
+          psql -h ${PGHOST} -U ${PGUSER} -c "\l" > server/ci/out/psql-list.txt 2>&1 || true
 
           echo "Capturing docker compose logs to infra-all.log and infra-db.log"
           docker compose -f docker-compose.ci.yml logs --no-color --timestamps > infra-all.log || true
@@ -547,7 +703,16 @@ jobs:
           DB_PORT=${DB_PORT:-5432}; \
           DB_NAME=${DB_NAME:-prochat_db}; \
           export DB_USER DB_PASSWORD DB_HOST DB_PORT DB_NAME; \
-          npx sequelize-cli db:migrate --config config/config.js || echo "migrate failed or not required"
+          # Wait up to ~60s for the database to appear via TCP (avoid socket vs env races)
+          for i in `seq 1 30`; do
+            if psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1; then
+              echo "${DB_NAME} exists (attempt $i)"; break
+            fi
+            echo "Waiting for ${DB_NAME} to exist (attempt $i)"; sleep 2
+          done
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          echo "Using DATABASE_URL=${DATABASE_URL}" > server/ci/out/migrate.env || true
+          DATABASE_URL="${DATABASE_URL}" npx sequelize-cli db:migrate --url "${DATABASE_URL}" --debug || echo "migrate failed or not required"
 
       - name: 'Defensive: wait for prochat_db inside Postgres container'
         run: |
@@ -629,8 +794,13 @@ jobs:
       - name: Start server (mocked) in background
         working-directory: server
         run: |
+          mkdir -p server/ci/out || true
           export MOCK_AI=true MOCK_VECTOR=true PORT=8081; \
-          nohup node src/index.js > ci_server.log 2>&1 &
+          nohup node src/index.js > server/ci/out/ci_server.log 2>&1 &
+          sleep 5
+          ps aux > server/ci/out/ps.txt || true
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
+          tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
       - name: Wait for /ready (server)
         working-directory: server

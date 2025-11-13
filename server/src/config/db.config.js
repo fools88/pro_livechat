@@ -13,7 +13,7 @@ const initDb = (opts = {}) => {
 
   const dbName = process.env.DB_NAME || opts.DB_NAME || 'prochat_db';
   const dbUser = process.env.DB_USER || opts.DB_USER || 'prochatadmin';
-  const dbPassword = process.env.DB_PASSWORD || opts.DB_PASSWORD || 'prochatpassword123';
+  const dbPassword = process.env.DB_PASSWORD || opts.DB_PASSWORD || 'REPLACE_ME_DB_PASSWORD';
 
   sequelize = new Sequelize(dbName, dbUser, dbPassword, {
     host: process.env.DB_HOST || opts.DB_HOST || 'localhost',

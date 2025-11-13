@@ -12,9 +12,14 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('NOW()') }
     });
     try {
-      await queryInterface.addConstraint('AIRules', {
-        fields: ['websiteId'], type: 'foreign key', name: 'fk_airules_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
-      });
+      const [exists] = await queryInterface.sequelize.query("SELECT 1 FROM pg_constraint WHERE conname = 'fk_airules_website' LIMIT 1;");
+      if (Array.isArray(exists) && exists.length > 0) {
+        console.log('fk_airules_website already exists, skipping');
+      } else {
+        await queryInterface.addConstraint('AIRules', {
+          fields: ['websiteId'], type: 'foreign key', name: 'fk_airules_website', references: { table: 'Websites', field: 'id' }, onDelete: 'CASCADE'
+        });
+      }
     } catch (err) {
       console.warn('Warning: could not add fk_airules_website constraint in migration 20251103 -', err.message);
     }
