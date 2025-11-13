@@ -1,0 +1,13 @@
+time="2025-11-13T10:57:39Z" level=warning msg="/home/runner/work/pro_livechat/pro_livechat/docker-compose.ci.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+                                                        List of databases
+     Name     |    Owner     | Encoding |  Collate   |   Ctype    | ICU Locale | Locale Provider |       Access privileges       
+--------------+--------------+----------+------------+------------+------------+-----------------+-------------------------------
+ postgres     | prochatadmin | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | 
+ prochat_db   | prochatadmin | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | 
+ prochatadmin | prochatadmin | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | 
+ template0    | prochatadmin | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | =c/prochatadmin              +
+              |              |          |            |            |            |                 | prochatadmin=CTc/prochatadmin
+ template1    | prochatadmin | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | =c/prochatadmin              +
+              |              |          |            |            |            |                 | prochatadmin=CTc/prochatadmin
+(5 rows)
+

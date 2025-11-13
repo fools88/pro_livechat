@@ -1,0 +1,29 @@
+﻿.github/workflows/ci-e2e-incremental.yml:65:            DB_PASSWORD=REPLACE_ME_DB_PASSWORD \
+.github/workflows/ci-e2e.yml:169:          POSTGRES_PASSWORD: REPLACE_ME_DB_PASSWORD
+.github/workflows/ci-e2e.yml:202:          DB_PASSWORD: REPLACE_ME_DB_PASSWORD
+.github/workflows/ci-e2e.yml:212:          DB_PASSWORD: REPLACE_ME_DB_PASSWORD
+.github/workflows/ci-e2e.yml:250:      DB_PASSWORD: REPLACE_ME_DB_PASSWORD
+.github/workflows/ci-secret-scan.yml:28:          PATTERNS='Password:'
+dashboard/src/pages/LoginPage.jsx:66:          <label htmlFor="password">Password:</label>
+dashboard/src/pages/RegisterPage.jsx:80:          <label htmlFor="password">Password:</label>
+docker-compose.ci.yml:9:      POSTGRES_PASSWORD: REPLACE_ME_DB_PASSWORD
+docker-compose.ci.yml:42:      MINIO_ROOT_PASSWORD: REPLACE_ME_MINIO_PASSWORD
+docker-compose.yml:15:      POSTGRES_PASSWORD: REPLACE_ME_DB_PASSWORD
+docker-compose.yml:41:      MINIO_ROOT_PASSWORD: REPLACE_ME_MINIO_PASSWORD
+docs/FILE_SHARING_PLAN.md:170:  -e "MINIO_ROOT_PASSWORD=REPLACE_ME_MINIO_PASSWORD" \
+docs/HOW_TO_VIEW_DATABASE.md:23:- Password: `REPLACE_ME_DB_PASSWORD`
+docs/HOW_TO_VIEW_DATABASE.md:63:   - Password: `REPLACE_ME_DB_PASSWORD`
+docs/HOW_TO_VIEW_DATABASE.md:194:   - Password: `REPLACE_ME_DB_PASSWORD`
+server/.env.example:30:DB_PASSWORD=REPLACE_ME_DB_PASSWORD
+server/.env.example:51:AWS_SECRET_ACCESS_KEY=REPLACE_ME_MINIO_PASSWORD
+server/.env.secrets.example:16:AWS_SECRET_ACCESS_KEY=REPLACE_ME_S3_SECRET
+server/config/config.js:20:  password: process.env.DB_PASSWORD || 'REPLACE_ME_DB_PASSWORD',
+server/src/config/db.config.js:16:  const dbPassword = process.env.DB_PASSWORD || opts.DB_PASSWORD || 'REPLACE_ME_DB_PASSWORD';
+server/src/services/storage.service.js:13:  secretKey: process.env.AWS_SECRET_ACCESS_KEY || 'REPLACE_ME_MINIO_PASSWORD'
+server/start_server_e2e.ps1:3:$env:DB_PASSWORD='REPLACE_ME_DB_PASSWORD'
+server/tools/create_bucket.js:8:const secretKey = process.env.AWS_SECRET_ACCESS_KEY || 'REPLACE_ME_MINIO_PASSWORD';
+server/tools/seed_admin.js:55:      console.log('[SEED] Password: (hidden in CI)');
+server/tools/seed_admin.js:59:      console.log('[SEED] Password:', adminPassword);
+server/tools/seed_admin.js:63:      console.log('[SEED]   Password: (shown above)');
+server/tools/start_e2e_env.bat:3:set DB_PASSWORD=REPLACE_ME_DB_PASSWORD
+tmp_db_inspect.json:197:                "POSTGRES_PASSWORD=REPLACE_ME_DB_PASSWORD",

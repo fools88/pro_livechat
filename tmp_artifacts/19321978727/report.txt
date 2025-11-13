@@ -1,0 +1,9 @@
+./.github/workflows/ci-secret-scan.yml:28:          PATTERNS='Password:'
+./docs/HOW_TO_VIEW_DATABASE.md:23:- Password: `REPLACE_ME_DB_PASSWORD`
+./docs/HOW_TO_VIEW_DATABASE.md:63:   - Password: `REPLACE_ME_DB_PASSWORD`
+./docs/HOW_TO_VIEW_DATABASE.md:194:   - Password: `REPLACE_ME_DB_PASSWORD`
+./dashboard/src/pages/RegisterPage.jsx:80:          <label htmlFor="password">Password:</label>
+./server/tools/seed_admin.js:55:      console.log('[SEED] Password: (hidden in CI)');
+./server/tools/seed_admin.js:59:      console.log('[SEED] Password:', adminPassword);
+./server/tools/seed_admin.js:63:      console.log('[SEED]   Password: (shown above)');
+./dashboard/src/pages/LoginPage.jsx:66:          <label htmlFor="password">Password:</label>

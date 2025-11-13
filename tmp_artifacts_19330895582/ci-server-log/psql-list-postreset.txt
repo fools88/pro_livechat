@@ -1,0 +1,4 @@
+time="2025-11-13T12:05:13Z" level=warning msg="The \"MINIO_ROOT_PASSWORD\" variable is not set. Defaulting to a blank string."
+time="2025-11-13T12:05:13Z" level=warning msg="The \"MINIO_ROOT_USER\" variable is not set. Defaulting to a blank string."
+time="2025-11-13T12:05:13Z" level=warning msg="/home/runner/work/pro_livechat/pro_livechat/docker-compose.ci.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+service "db" is not running

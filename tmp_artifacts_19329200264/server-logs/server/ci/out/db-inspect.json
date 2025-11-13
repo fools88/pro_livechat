@@ -1,0 +1,300 @@
+[
+    {
+        "Id": "39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f",
+        "Created": "2025-11-13T10:57:35.855909705Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "postgres"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 2396,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-11-13T10:57:35.898759968Z",
+            "FinishedAt": "0001-01-01T00:00:00Z",
+            "Health": {
+                "Status": "starting",
+                "FailingStreak": 0,
+                "Log": []
+            }
+        },
+        "Image": "sha256:ba05c11fe977ed520354d744e145736c881d4a4a581718dbcd6eec266f822549",
+        "ResolvConfPath": "/var/lib/docker/containers/39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f/hostname",
+        "HostsPath": "/var/lib/docker/containers/39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f/hosts",
+        "LogPath": "/var/lib/docker/containers/39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f/39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f-json.log",
+        "Name": "/prochat-db-ci",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "pro_livechat_postgres-data-ci:/var/lib/postgresql/data:rw",
+                "/home/runner/work/pro_livechat/pro_livechat/server/ci/ci-initdb.sh:/docker-entrypoint-initdb.d/ci-initdb.sh:ro",
+                "/home/runner/work/pro_livechat/pro_livechat/server/ci/out:/ci-out:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "pro_livechat_default",
+            "PortBindings": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "5432"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "39f46a0487e78c90a728587d0beb1045299952bfdb5e205e387ee03773b3230f",
+                "LowerDir": "/var/lib/docker/overlay2/739b8441b4b3ab4dd96e0134a87a60fd97b388c1f0bfeb4ee31092152fead17b-init/diff:/var/lib/docker/overlay2/47d4417baf38d51d7ec405b35d29850c4c33e88c7763f46952c8c86285077a74/diff:/var/lib/docker/overlay2/8b9306924e7b54a4e8af0d01ca47892f0f2873881f920ae7607024b8e8abc133/diff:/var/lib/docker/overlay2/95e3a1c657d53e8b7e8980da383ab05d765775eee2638b1965e412ffb80ae75f/diff:/var/lib/docker/overlay2/30454d23a476fb6c3fdfff09a6f0d8d68bfcdd320ef3c884ef84de19d6a09bde/diff:/var/lib/docker/overlay2/18aca24dbbab2b04f67ca38109117bdacae65b28fb8e060175fa841fdbfccdfa/diff:/var/lib/docker/overlay2/6f07726a14672de3a9ac5d3d446dd633b4b4ab5bb6f04523a51b69eeab1a83ef/diff:/var/lib/docker/overlay2/10b14b9663dd82e1a3d5d00bdb33338352539c1a05b9a1f334c9dc70944f61f9/diff:/var/lib/docker/overlay2/0553f5e7e8e00d59af2944573cd6a89348d96671ba58949a5d635620efd7e642/diff:/var/lib/docker/overlay2/56f59f7349bff7afca6382dc73162839de6e46d10844b50f5bc8487215a7a9f9/diff:/var/lib/docker/overlay2/f7e2f942aaaa1e696b1d85a80405c3ed7b00c6013b037f8f5353a7c3c5048e24/diff:/var/lib/docker/overlay2/a4b154eeae53d3c92fba05ac71009a2d320cc8e4e3f810a79c2619ba8b81d99c/diff",
+                "MergedDir": "/var/lib/docker/overlay2/739b8441b4b3ab4dd96e0134a87a60fd97b388c1f0bfeb4ee31092152fead17b/merged",
+                "UpperDir": "/var/lib/docker/overlay2/739b8441b4b3ab4dd96e0134a87a60fd97b388c1f0bfeb4ee31092152fead17b/diff",
+                "WorkDir": "/var/lib/docker/overlay2/739b8441b4b3ab4dd96e0134a87a60fd97b388c1f0bfeb4ee31092152fead17b/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "pro_livechat_postgres-data-ci",
+                "Source": "/var/lib/docker/volumes/pro_livechat_postgres-data-ci/_data",
+                "Destination": "/var/lib/postgresql/data",
+                "Driver": "local",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/runner/work/pro_livechat/pro_livechat/server/ci/ci-initdb.sh",
+                "Destination": "/docker-entrypoint-initdb.d/ci-initdb.sh",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/runner/work/pro_livechat/pro_livechat/server/ci/out",
+                "Destination": "/ci-out",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "39f46a0487e7",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "5432/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "POSTGRES_PASSWORD=REPLACE_ME_DB_PASSWORD",
+                "POSTGRES_DB=prochatadmin",
+                "POSTGRES_USER=prochatadmin",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOSU_VERSION=1.19",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=15",
+                "PG_VERSION=15.14",
+                "PG_SHA256=06dd75d305cd3870ee62b3932e661c624543eaf9ae2ba37cdec0a4f8edd051d2",
+                "DOCKER_PG_LLVM_DEPS=llvm19-dev \t\tclang19",
+                "PGDATA=/var/lib/postgresql/data"
+            ],
+            "Cmd": [
+                "postgres"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "pg_isready -U prochatadmin -d prochatadmin -h localhost -p 5432"
+                ],
+                "Interval": 5000000000,
+                "Timeout": 5000000000,
+                "Retries": 10
+            },
+            "Image": "postgres:15-alpine",
+            "Volumes": {
+                "/var/lib/postgresql/data": {}
+            },
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "af8639e49deac5ec1c32b3675cceecaea78a782b19a9ff43cd51204639ac6244",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "",
+                "com.docker.compose.image": "sha256:ba05c11fe977ed520354d744e145736c881d4a4a581718dbcd6eec266f822549",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "pro_livechat",
+                "com.docker.compose.project.config_files": "/home/runner/work/pro_livechat/pro_livechat/docker-compose.ci.yml",
+                "com.docker.compose.project.working_dir": "/home/runner/work/pro_livechat/pro_livechat",
+                "com.docker.compose.service": "db",
+                "com.docker.compose.version": "2.38.2"
+            },
+            "StopSignal": "SIGINT"
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "a0c2d72ab5f30284b6a300cc23638cef0920fc00e8f89262eca69f490343e283",
+            "SandboxKey": "/var/run/docker/netns/a0c2d72ab5f3",
+            "Ports": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "5432"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "5432"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "pro_livechat_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "prochat-db-ci",
+                        "db"
+                    ],
+                    "MacAddress": "22:48:69:40:fe:c1",
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "0f79dac7ffea92b4ce26f2a182a62ed53e70a624bd77570c75c4fbfa8a1cb046",
+                    "EndpointID": "567da9ad684cab5d21c6144cbce65f95384bbf9fc234d8d727d3b955fe9117bd",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "prochat-db-ci",
+                        "db",
+                        "39f46a0487e7"
+                    ]
+                }
+            }
+        }
+    }
+]

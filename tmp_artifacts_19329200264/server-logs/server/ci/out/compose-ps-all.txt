@@ -1,0 +1,4 @@
+NAME               IMAGE                COMMAND                  SERVICE   CREATED         STATUS                            PORTS
+prochat-db-ci      postgres:15-alpine   "docker-entrypoint.s…"   db        3 seconds ago   Up 2 seconds (health: starting)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+prochat-minio-ci   minio/minio:latest   "/usr/bin/docker-ent…"   minio     3 seconds ago   Up 2 seconds (health: starting)   0.0.0.0:9000-9001->9000-9001/tcp, [::]:9000-9001->9000-9001/tcp
+prochat-redis-ci   redis:7-alpine       "docker-entrypoint.s…"   redis     3 seconds ago   Up 2 seconds (health: starting)   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
