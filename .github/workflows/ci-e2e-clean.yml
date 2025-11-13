@@ -43,7 +43,7 @@ jobs:
         run: |
           sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
           chmod +x ./scripts/ci/wait-for-ready.sh || true
-          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60 || true
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 120 || true
 
       - name: Setup Python (for YAML validation)
         uses: actions/setup-python@v4
@@ -193,6 +193,13 @@ jobs:
           if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss.txt || true; else netstat -tlnp > server/ci/out/netstat.txt || true; fi
           tail -n 200 server/ci/out/ci_server.log > server/ci/out/ci_server_tail.txt || true
 
+      - name: Upload server startup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-server-log
+          path: server/ci/out/ci_server.log
+
       - name: Wait for /ready
         working-directory: server
         env:
@@ -296,7 +303,7 @@ jobs:
         run: |
           sudo apt-get update -y && sudo apt-get install -y postgresql-client redis-tools || true
           chmod +x ./scripts/ci/wait-for-ready.sh || true
-          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 60
+          ./scripts/ci/wait-for-ready.sh 127.0.0.1 5432 127.0.0.1 6379 120
 
       - name: Run migrations
         working-directory: server
