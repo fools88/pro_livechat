@@ -31,6 +31,11 @@ jobs:
       DB_PORT: 5432
       PORT: 8081
       JWT_SECRET: '${{ secrets.CI_JWT_SECRET }}'
+      # Optional MinIO credentials for stricter E2E checks (set in repo secrets if needed)
+      MINIO_ROOT_USER: '${{ secrets.CI_MINIO_ROOT_USER }}'
+      MINIO_ROOT_PASSWORD: '${{ secrets.CI_MINIO_ROOT_PASSWORD }}'
+      # Toggle to require MinIO to be healthy; set to 'true' in secrets to enable strict checking
+      REQUIRE_STRICT_MINIO: '${{ secrets.CI_REQUIRE_MINIO }}'
       LOG_LEVEL: debug
       MOCK_AI: 'true'
       MOCK_VECTOR: 'true'
@@ -229,17 +234,32 @@ jobs:
           fi
 
           echo "== Smoke check: MinIO health (if running) =="
-          # Try MinIO health endpoint with retries; do not fail the job if MinIO not present
-          success=1
-          for i in `seq 1 20`; do
-            if curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null 2>&1; then
-              echo "MinIO healthy (attempt $i)"; success=0; break
+          # If REQUIRE_STRICT_MINIO == 'true' then fail the job when MinIO isn't healthy.
+          STRICT=${REQUIRE_STRICT_MINIO:-}
+          if [ "${STRICT}" = "true" ]; then
+            echo "Strict MinIO required by CI; enforcing health check"
+            for i in `seq 1 20`; do
+              if curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null 2>&1; then
+                echo "MinIO healthy (attempt $i)"; exit 0
+              fi
+              echo "MinIO not ready yet (attempt $i), sleeping 3s..."
+              sleep 3
+            done
+            echo "ERROR: MinIO health endpoint not available after retries; failing CI because REQUIRE_STRICT_MINIO=true"
+            exit 1
+          else
+            # Try MinIO health endpoint with retries; do not fail the job if MinIO not present
+            success=1
+            for i in `seq 1 20`; do
+              if curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null 2>&1; then
+                echo "MinIO healthy (attempt $i)"; success=0; break
+              fi
+              echo "MinIO not ready yet (attempt $i), sleeping 3s..."
+              sleep 3
+            done
+            if [ $success -ne 0 ]; then
+              echo "WARNING: MinIO health endpoint not available after retries; continuing without failing CI"
             fi
-            echo "MinIO not ready yet (attempt $i), sleeping 3s..."
-            sleep 3
-          done
-          if [ $success -ne 0 ]; then
-            echo "WARNING: MinIO health endpoint not available after retries; continuing without failing CI"
           fi
 
       - name: Create website (deterministic)
