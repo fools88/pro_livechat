@@ -131,13 +131,20 @@ jobs:
       - name: Post-reset sanity capture
         run: |
           mkdir -p server/ci/out || true
+          # Ensure PG env vars are set so db-env.txt records useful values for debugging
+          export PGHOST=${DB_HOST:-127.0.0.1}
+          export PGPORT=${DB_PORT:-5432}
+          export PGUSER=${DB_USER:-prochatadmin}
+          export PGPASSWORD="${DB_PASSWORD:-}"
           echo "PGHOST=${PGHOST:-}" > server/ci/out/db-env.txt || true
           echo "PGPORT=${PGPORT:-}" >> server/ci/out/db-env.txt || true
           echo "PGUSER=${PGUSER:-}" >> server/ci/out/db-env.txt || true
           echo "DB_USER=${DB_USER:-}" >> server/ci/out/db-env.txt || true
+          echo "MINIO_ROOT_USER=${MINIO_ROOT_USER:-}" >> server/ci/out/db-env.txt || true
+          echo "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-}" >> server/ci/out/db-env.txt || true
           # capture DB list via docker exec (force TCP and provide PGPASSWORD)
           # Connect over TCP as the DB superuser account (prochatadmin) using PGPASSWORD
-          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="${DB_PASSWORD}" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 || true
+          docker compose -f docker-compose.ci.yml exec -T -e PGPASSWORD="$PGPASSWORD" -e PGHOST="$PGHOST" -e PGPORT="$PGPORT" db sh -lc 'psql -h 127.0.0.1 -U prochatadmin -c "\\l"' > server/ci/out/psql-list-postreset.txt 2>&1 || true
 
       - name: Run DB migrations
         if: false
