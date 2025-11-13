@@ -235,6 +235,41 @@ jobs:
           # upload all files under server/ci/out so we capture tail, ps, netstat, etc.
           path: server/ci/out/**
 
+      - name: Ensure MinIO bucket exists (if MinIO configured)
+        working-directory: server
+        env:
+          MINIO_ROOT_USER: ${{ env.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ env.MINIO_ROOT_PASSWORD }}
+          MINIO_ENDPOINT: ${{ env.MINIO_ENDPOINT }}
+          S3_BUCKET_NAME: ${{ env.S3_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MINIO_ENDPOINT:-}" ]; then
+            echo "MINIO_ENDPOINT not set; skipping bucket creation"
+            exit 0
+          fi
+          # Wait for MinIO health endpoint first (avoid racing with container startup)
+          for i in `seq 1 20`; do
+            if curl -fsS ${MINIO_ENDPOINT}/minio/health/ready >/dev/null 2>&1; then
+              echo "MinIO healthy (attempt $i)"; break
+            fi
+            echo "MinIO not healthy yet (attempt $i), sleeping 3s..."; sleep 3
+          done
+          # install mc client (MinIO client) quickly
+          if ! command -v mc >/dev/null 2>&1; then
+            curl -sLO https://dl.min.io/client/mc/release/linux-amd64/mc
+            chmod +x mc
+            sudo mv mc /usr/local/bin/mc
+          fi
+          # configure alias and create bucket
+          if [ -n "${MINIO_ROOT_USER:-}" ] && [ -n "${MINIO_ROOT_PASSWORD:-}" ] && [ -n "${S3_BUCKET_NAME:-}" ]; then
+            mc alias set local ${MINIO_ENDPOINT} "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}" --api S3v4 || true
+            mc mb --ignore-existing local/${S3_BUCKET_NAME} || true
+            mc ls local/${S3_BUCKET_NAME} || true
+          else
+            echo "Missing MINIO credentials or S3_BUCKET_NAME; skipping bucket creation"
+          fi
+
       - name: Wait for /ready
         working-directory: server
         env:
