@@ -356,6 +356,38 @@ jobs:
           SITE_URL: "https://e2e.test-${{ github.run_id }}"
         run: node tools/ci_assert_widget_token.js
 
+      - name: Pre-E2E connectivity check + diagnostics
+        working-directory: server
+        run: |
+          set -euo pipefail
+          mkdir -p server/ci/out || true
+          # capture initial listener state
+          if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss_before_e2e.txt || true; else netstat -tlnp > server/ci/out/netstat_before_e2e.txt || true; fi
+          MAX=10
+          TRY=1
+          SUCCESS=0
+          while [ $TRY -le $MAX ]; do
+            echo "Pre-E2E connectivity attempt $TRY/$MAX"
+            # try a POST (with dummy auth) to detect connection acceptance (401/403 acceptable)
+            if curl -v -X POST http://127.0.0.1:8081/api/websites/ -H 'Content-Type: application/json' -H 'Authorization: Bearer invalidtoken' -d '{}' --max-time 5 -o /dev/null 2> server/ci/out/curl_pre_e2e_attempt_${TRY}.txt; then
+              echo "curl connected (exit 0) on attempt $TRY"; SUCCESS=1; break
+            else
+              # if curl returned non-zero, check captured verbose output for connection refused
+              grep -E "Connection refused|failed to connect" server/ci/out/curl_pre_e2e_attempt_${TRY}.txt >/dev/null 2>&1 || true
+              if command -v ss >/dev/null 2>&1; then ss -tlnp > server/ci/out/ss_attempt_${TRY}.txt || true; else netstat -tlnp > server/ci/out/netstat_attempt_${TRY}.txt || true; fi
+              echo "Attempt $TRY failed; sleeping before retry"
+              TRY=$((TRY+1))
+              sleep 3
+            fi
+          done
+          if [ $SUCCESS -ne 1 ]; then
+            echo "ERROR: Pre-E2E connectivity check failed after $MAX attempts" >&2
+            echo "=== curl outputs (last) ===" >&2; tail -n 200 server/ci/out/curl_pre_e2e_attempt_${MAX}.txt || true
+            echo "=== ss/netstat (before) ===" >&2; if [ -f server/ci/out/ss_before_e2e.txt ]; then cat server/ci/out/ss_before_e2e.txt; else cat server/ci/out/netstat_before_e2e.txt || true; fi
+            echo "=== ss/netstat (last attempt) ===" >&2; if [ -f server/ci/out/ss_attempt_${MAX}.txt ]; then cat server/ci/out/ss_attempt_${MAX}.txt; else cat server/ci/out/netstat_attempt_${MAX}.txt || true; fi
+            exit 1
+          fi
+
       - name: Run E2E Agent-Assist script
         working-directory: server
         env:
