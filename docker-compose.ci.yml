@@ -46,10 +46,12 @@ services:
     volumes:
       - minio-data-ci:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/minio/health/ready || exit 1"]
+      # Check readiness via HTTP health endpoint; increase retries/start_period
+      test: ["CMD-SHELL", "(wget -qO- http://127.0.0.1:9000/minio/health/ready || curl -fsS http://127.0.0.1:9000/minio/health/ready) >/dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 60
+      start_period: 10s
 
 volumes:
   postgres-data-ci:
