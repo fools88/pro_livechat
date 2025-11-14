@@ -46,8 +46,9 @@ jobs:
       AWS_SECRET_ACCESS_KEY: '${{ secrets.CI_MINIO_ROOT_PASSWORD }}'
       # Optional: set a CI test bucket so s3Required becomes true when testing strict MinIO
       S3_BUCKET_NAME: 'prochat-ci'
-      # Toggle to require MinIO to be healthy; set to 'true' in secrets to enable strict checking
-      REQUIRE_STRICT_MINIO: '${{ secrets.CI_REQUIRE_MINIO }}'
+      # Toggle to require MinIO to be healthy; set the secret to 'true' to enable strict checking
+      # Default to 'false' when the secret is not set so CI remains tolerant by default.
+      REQUIRE_STRICT_MINIO: ${{ secrets.CI_REQUIRE_MINIO || 'false' }}
       LOG_LEVEL: debug
       MOCK_AI: 'true'
       MOCK_VECTOR: 'true'
@@ -898,6 +899,8 @@ jobs:
           DB_NAME=${DB_NAME:-prochat_db}; \
           export DB_USER DB_PASSWORD DB_HOST DB_PORT DB_NAME; \
           # Wait up to ~60s for the database to appear via TCP (avoid socket vs env races)
+          # Ensure PGPASSWORD is exported so psql calls don't fail with "no password supplied"
+          export PGPASSWORD="${DB_PASSWORD}"
           for i in `seq 1 30`; do
             if psql -h ${DB_HOST} -U ${DB_USER} -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1; then
               echo "${DB_NAME} exists (attempt $i)"; break
